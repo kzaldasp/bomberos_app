@@ -1,12 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_map/flutter_map.dart'; 
-import 'package:latlong2/latlong.dart';       
+import 'package:flutter_map/flutter_map.dart';
+import 'package:latlong2/latlong.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../servicios/servicio_auth.dart';
-import '../modelos/categoria_modelo.dart'; // <--- IMPORTANTE: Importar el modelo
+import '../modelos/categoria_modelo.dart';
 
 class PantallaCrearAlerta extends StatefulWidget {
-  // Ahora esta pantalla NECESITA saber qué categoría se eligió
   final CategoriaModelo categoria;
 
   const PantallaCrearAlerta({super.key, required this.categoria});
@@ -16,24 +15,55 @@ class PantallaCrearAlerta extends StatefulWidget {
 }
 
 class _PantallaCrearAlertaState extends State<PantallaCrearAlerta> {
-  // Coordenadas iniciales (Centro de Otavalo aprox)
   LatLng _ubicacionSeleccionada = const LatLng(0.2343, -78.2625);
-  
-  final _descController = TextEditingController();
+  late final TextEditingController _descController;
   bool _guardando = false;
 
-  // Función para subir la alerta a Firebase
+  @override
+  void initState() {
+    super.initState();
+    _descController = TextEditingController();
+  }
+
+  @override
+  void dispose() {
+    _descController.dispose();
+    super.dispose();
+  }
+
+  // Helper: Convierte Color(0xFFF57C00) -> String "#F57C00"
+  String _colorToHex(Color color) {
+    return '#${color.value.toRadixString(16).substring(2).toUpperCase()}';
+  }
+
   void _publicarAlerta() async {
+    if (_guardando) return;
     setState(() => _guardando = true);
 
     try {
-      // 1. Preparamos los datos AUTOMÁTICOS basados en la categoría
+      // 1. PREPARAR DATOS EXACTOS COMO LOS PEDISTE
+      // Convertimos el color de vuelta a String Hex
+      final String colorString = _colorToHex(widget.categoria.color);
+      
+      // Asumimos que el ID de la categoría (ej: 'incendio') o una propiedad 'nombreIcono'
+      // contiene el string "car_crash" o "local_fire_department".
+      // Si tu modelo no tiene el campo 'nombreIcono', usamos 'id' o lo que uses para el string del icono.
+      // Aquí intentaré usar una propiedad 'nombreIcono' si existe, si no, uso el ID como fallback.
+      final String iconoString = widget.categoria.id; // O widget.categoria.nombreIcono
+
       final alerta = {
-        "titulo": widget.categoria.nombre,     // El título ya viene de la categoría
-        "tipo_id": widget.categoria.id,        // ID real (ej: 'incendio')
-        "tipo_nombre": widget.categoria.nombre,// Nombre legible
+        // Datos de Identificación
+        "titulo": widget.categoria.nombre,
+        "tipo_id": widget.categoria.id,
+        "tipo_nombre": widget.categoria.nombre,
         "importancia": widget.categoria.importancia,
         
+        // --- AQUÍ ESTÁ LO QUE PEDISTE ---
+        // Guardamos los strings exactos para pintar luego
+        "color": colorString,  // Ej: "#F57C00"
+        "icono": iconoString,  // Ej: "car_crash" (o el ID que mapea al icono)
+        // -------------------------------
+
         "descripcion": _descController.text.trim().isEmpty 
             ? "Sin detalles adicionales" 
             : _descController.text.trim(),
@@ -41,31 +71,32 @@ class _PantallaCrearAlertaState extends State<PantallaCrearAlerta> {
         "estado": "activa",
         "fecha_hora": FieldValue.serverTimestamp(),
         "creado_por_uid": ServicioAuth().usuarioActual?.uid,
-        
-        // Ubicación del mapa
-        "ubicacion_emergencia": GeoPoint(_ubicacionSeleccionada.latitude, _ubicacionSeleccionada.longitude),
-        
+        "ubicacion": GeoPoint(_ubicacionSeleccionada.latitude, _ubicacionSeleccionada.longitude),
         "respuestas": [] 
       };
 
-      // 2. Guardamos en Firebase
       await FirebaseFirestore.instance.collection('emergencias').add(alerta);
 
-      // 3. Volvemos atrás (Dos veces para cerrar mapa y selección)
       if (mounted) {
-        Navigator.pop(context); // Cierra mapa
-        Navigator.pop(context); // Cierra selección de tipo
+        Navigator.pop(context); 
+        Navigator.pop(context); 
         
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text("🚨 ${widget.categoria.nombre} ENVIADO A LA CENTRAL"), 
-            backgroundColor: widget.categoria.color
+            content: Row(children: [
+              const Icon(Icons.check_circle, color: Colors.white),
+              const SizedBox(width: 10),
+              Text("¡ALERTA DE ${widget.categoria.nombre.toUpperCase()} ENVIADA!"),
+            ]),
+            backgroundColor: widget.categoria.color,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
           )
         );
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error: $e")));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error: $e"), backgroundColor: Colors.red));
         setState(() => _guardando = false);
       }
     }
@@ -73,101 +104,147 @@ class _PantallaCrearAlertaState extends State<PantallaCrearAlerta> {
 
   @override
   Widget build(BuildContext context) {
+    final colorCat = widget.categoria.color;
+
     return Scaffold(
-      // La barra superior toma el color de la emergencia (Rojo, Azul, Naranja...)
+      backgroundColor: Colors.grey.shade50,
       appBar: AppBar(
-        title: Text("Ubicación: ${widget.categoria.nombre}"), 
-        backgroundColor: widget.categoria.color, 
-        foregroundColor: Colors.white
+        title: Text("Confirmar ${widget.categoria.nombre}", style: const TextStyle(fontWeight: FontWeight.bold)),
+        backgroundColor: colorCat,
+        foregroundColor: Colors.white,
+        elevation: 0,
+        centerTitle: true,
       ),
       body: Column(
         children: [
-          // --- SOLO CAMPO DE DESCRIPCIÓN ---
-          Padding(
-            padding: const EdgeInsets.all(16.0),
+          // 1. INPUT
+          Container(
+            padding: const EdgeInsets.fromLTRB(20, 20, 20, 30),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: const BorderRadius.vertical(bottom: Radius.circular(30)),
+              boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 15, offset: const Offset(0, 5))]
+            ),
             child: TextField(
               controller: _descController,
-              decoration: const InputDecoration(
-                labelText: "Detalles adicionales (Opcional)", 
-                hintText: "Piso, referencia visual, número de heridos...",
-                prefixIcon: Icon(Icons.note_add)
+              decoration: InputDecoration(
+                labelText: "Detalles adicionales",
+                hintText: "Ej: Piso 2, referencia visual...",
+                prefixIcon: Icon(Icons.description_outlined, color: colorCat),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(15), borderSide: BorderSide(color: Colors.grey.shade300)),
+                focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(15), borderSide: BorderSide(color: colorCat, width: 2)),
+                filled: true,
+                fillColor: Colors.grey.shade50,
               ),
               maxLines: 2,
             ),
           ),
 
-          // --- EL MAPA ---
-          const Padding(
-            padding: EdgeInsets.only(left: 16),
-            child: Align(alignment: Alignment.centerLeft, child: Text("Mueve el mapa para ajustar la ubicación exacta:", style: TextStyle(fontWeight: FontWeight.bold))),
+          const SizedBox(height: 20),
+
+          // 2. INSTRUCCIÓN
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: Row(
+              children: [
+                Icon(Icons.location_on_rounded, color: colorCat, size: 20),
+                const SizedBox(width: 8),
+                Text("Ubicación exacta:", style: TextStyle(color: Colors.grey.shade700, fontWeight: FontWeight.bold)),
+                const Spacer(),
+                Text("Mueve el mapa", style: TextStyle(color: Colors.grey.shade400, fontSize: 12)),
+              ],
+            ),
           ),
           
+          const SizedBox(height: 10),
+
+          // 3. MAPA CON MIRA
           Expanded(
-            child: Padding(
-              padding: const EdgeInsets.all(8.0),
+            child: Container(
+              margin: const EdgeInsets.symmetric(horizontal: 20),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(20),
+                boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 10, offset: const Offset(0, 4))],
+                border: Border.all(color: Colors.white, width: 4),
+              ),
               child: ClipRRect(
-                borderRadius: BorderRadius.circular(15),
+                borderRadius: BorderRadius.circular(16),
                 child: Stack(
                   children: [
                     FlutterMap(
                       options: MapOptions(
-                        initialCenter: _ubicacionSeleccionada, 
-                        initialZoom: 15.0,
-                        onTap: (tapPosition, point) {
-                          setState(() {
-                            _ubicacionSeleccionada = point;
-                          });
-                        },
+                        initialCenter: _ubicacionSeleccionada,
+                        initialZoom: 16.5,
+                        onTap: (_, point) => setState(() => _ubicacionSeleccionada = point),
                       ),
                       children: [
                         TileLayer(
                           urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                          userAgentPackageName: 'com.example.bomberos_app',
+                          userAgentPackageName: 'com.bomberos.app',
                         ),
-                        // El Pin del color de la categoría
                         MarkerLayer(
                           markers: [
                             Marker(
                               point: _ubicacionSeleccionada,
-                              width: 80,
-                              height: 80,
-                              child: Icon(
-                                widget.categoria.icono, // Icono dinámico (Fuego, Auto, etc)
-                                color: widget.categoria.color, // Color dinámico
-                                size: 50
+                              width: 60, height: 60,
+                              child: Stack(
+                                alignment: Alignment.center,
+                                children: [
+                                  // Halo
+                                  Container(
+                                    width: 60, height: 60,
+                                    decoration: BoxDecoration(
+                                      color: colorCat.withOpacity(0.2),
+                                      shape: BoxShape.circle,
+                                      border: Border.all(color: colorCat.withOpacity(0.5), width: 1),
+                                    ),
+                                  ),
+                                  // Punto central
+                                  Container(
+                                    width: 12, height: 12,
+                                    decoration: BoxDecoration(
+                                      color: Colors.white,
+                                      shape: BoxShape.circle,
+                                      border: Border.all(color: colorCat, width: 3),
+                                    ),
+                                  ),
+                                  // Icono
+                                  Positioned(
+                                    top: 5,
+                                    child: Icon(widget.categoria.icono, size: 18, color: colorCat),
+                                  )
+                                ],
                               ),
                             ),
                           ],
                         ),
                       ],
                     ),
-                    // Etiqueta flotante de ayuda
-                    Positioned(
-                      top: 10, right: 10,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                        decoration: BoxDecoration(color: Colors.white.withOpacity(0.8), borderRadius: BorderRadius.circular(20)),
-                        child: const Text("📌 Toca donde es el evento", style: TextStyle(fontSize: 12)),
-                      ),
-                    )
                   ],
                 ),
               ),
             ),
           ),
 
-          // --- BOTÓN PUBLICAR ---
-          Padding(
-            padding: const EdgeInsets.all(16.0),
+          // 4. BOTÓN
+          Container(
+            padding: const EdgeInsets.all(20.0),
             child: SizedBox(
               width: double.infinity,
+              height: 55,
               child: ElevatedButton.icon(
                 onPressed: _guardando ? null : _publicarAlerta,
-                icon: const Icon(Icons.send_sharp),
-                label: _guardando ? const Text("ENVIANDO...") : const Text("CONFIRMAR ALERTA"),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: widget.categoria.color, // Botón del color de la categoría
-                  foregroundColor: Colors.white
+                  backgroundColor: colorCat,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+                ),
+                icon: _guardando 
+                  ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(color: Colors.white))
+                  : const Icon(Icons.podcasts, size: 26),
+                label: Text(
+                  _guardando ? "ENVIANDO..." : "CONFIRMAR ALERTA",
+                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                 ),
               ),
             ),

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import '../modelos/emergencia_modelo.dart';
-import '../config/tema_app.dart';
+// import '../config/tema_app.dart'; // Ya no lo necesitamos si usamos colores dinámicos
 
 class TarjetaEmergencia extends StatelessWidget {
   final EmergenciaModelo alerta;
@@ -14,9 +14,12 @@ class TarjetaEmergencia extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Definir color según estado
-    final bool esActiva = alerta.estado == 'activa';
-    final Color colorEstado = esActiva ? TemaApp.rojoBombero : Colors.grey;
+    // 1. Definir estado y color maestro
+    final bool esFinalizada = alerta.estado == 'finalizada';
+    
+    // Si está activa, el color es el de la categoría (Rojo, Verde, etc.)
+    // Si está finalizada, es Gris.
+    final Color colorPrioritario = esFinalizada ? Colors.grey : alerta.colorCategoria;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
@@ -24,7 +27,6 @@ class TarjetaEmergencia extends StatelessWidget {
         color: Colors.white,
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
-          // Sombra suave estilo iOS
           BoxShadow(
             color: Colors.black.withOpacity(0.05),
             blurRadius: 15,
@@ -42,25 +44,24 @@ class TarjetaEmergencia extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // --- CABECERA: ETIQUETA Y HORA ---
+                // --- CABECERA ---
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    // Chip de Categoría
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                       decoration: BoxDecoration(
-                        color: colorEstado.withOpacity(0.1),
+                        color: colorPrioritario.withOpacity(0.1),
                         borderRadius: BorderRadius.circular(10),
                       ),
                       child: Row(
                         children: [
-                          Icon(Icons.local_fire_department, size: 14, color: colorEstado),
+                          Icon(alerta.iconoCategoria, size: 14, color: colorPrioritario),
                           const SizedBox(width: 5),
                           Text(
                             alerta.tipoId.toUpperCase(),
                             style: TextStyle(
-                              color: colorEstado,
+                              color: colorPrioritario,
                               fontWeight: FontWeight.bold,
                               fontSize: 10,
                             ),
@@ -68,77 +69,64 @@ class TarjetaEmergencia extends StatelessWidget {
                         ],
                       ),
                     ),
-                    // Hora
                     Text(
-                      _formatearHora(alerta.fechaHora),
+                      "${alerta.fechaHora.toDate().hour}:${alerta.fechaHora.toDate().minute.toString().padLeft(2, '0')}",
                       style: TextStyle(color: Colors.grey.shade400, fontSize: 12),
                     ),
                   ],
                 ),
                 
                 const SizedBox(height: 12),
-
+                
                 // --- TÍTULO ---
                 Text(
                   alerta.titulo,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 18, 
-                    fontWeight: FontWeight.w800, // Extra Bold
-                    color: Color(0xFF2D3436), // Gris casi negro
+                    fontWeight: FontWeight.w800,
+                    color: esFinalizada ? Colors.grey : const Color(0xFF2D3436),
                   ),
                 ),
-
+                
                 const SizedBox(height: 6),
-
-                // --- DESCRIPCIÓN CORTA ---
+                
+                // --- DESCRIPCIÓN ---
                 Text(
                   alerta.descripcion,
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(color: Colors.grey.shade600, fontSize: 14, height: 1.4),
                 ),
-
+                
                 const SizedBox(height: 15),
-
-                // --- FOOTER: RESPUESTAS ---
+                
+                // --- FOOTER (CORREGIDO) ---
                 Row(
                   children: [
-                    // Iconos de avatares (simulados)
-                    SizedBox(
-                      height: 24,
-                      child: ListView.builder(
-                        scrollDirection: Axis.horizontal,
-                        shrinkWrap: true,
-                        itemCount: alerta.respuestas.length > 3 ? 3 : alerta.respuestas.length,
-                        itemBuilder: (context, index) {
-                          return Align(
-                            widthFactor: 0.7, // Para que se superpongan un poco
-                            child: CircleAvatar(
-                              radius: 12,
-                              backgroundColor: Colors.white,
-                              child: CircleAvatar(
-                                radius: 10,
-                                backgroundColor: TemaApp.azulInstitucional,
-                                child: const Icon(Icons.person, size: 12, color: Colors.white),
-                              ),
-                            ),
-                          );
-                        },
-                      ),
+                    // Icono de estado (Radar o Archivo)
+                    Icon(
+                      esFinalizada ? Icons.archive_outlined : Icons.sensors, 
+                      size: 16, 
+                      color: colorPrioritario // <--- Ahora usa el color correcto
                     ),
-                    const SizedBox(width: 8),
+                    const SizedBox(width: 6),
+                    
+                    // Texto de estado
                     Text(
-                      alerta.respuestas.isEmpty 
-                        ? "Esperando personal..." 
-                        : "${alerta.respuestas.length} respondiendo",
+                      esFinalizada 
+                        ? "CASO CERRADO" 
+                        : "${alerta.respuestas.length} EN CAMINO",
                       style: TextStyle(
-                        color: alerta.respuestas.isEmpty ? Colors.grey : TemaApp.azulInstitucional,
-                        fontWeight: FontWeight.w600,
-                        fontSize: 12
+                        color: colorPrioritario, // <--- Ahora usa el color correcto (Rojo/Verde), NO Azul
+                        fontWeight: FontWeight.bold,
+                        fontSize: 11,
+                        letterSpacing: 0.5
                       ),
                     ),
+                    
                     const Spacer(),
-                    Icon(Icons.arrow_forward_rounded, color: Colors.grey.shade300, size: 20)
+                    
+                    Icon(Icons.arrow_forward_ios_rounded, color: Colors.grey.shade300, size: 14)
                   ],
                 )
               ],
@@ -147,10 +135,5 @@ class TarjetaEmergencia extends StatelessWidget {
         ),
       ),
     );
-  }
-
-  String _formatearHora(DateTime fecha) {
-    // Un helper simple para la hora
-    return "${fecha.hour}:${fecha.minute.toString().padLeft(2, '0')}";
   }
 }

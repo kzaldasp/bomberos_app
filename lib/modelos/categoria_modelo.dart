@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import '../config/utilidad_iconos.dart'; // <--- 1. IMPORTAR ESTO
 
 class CategoriaModelo {
   final String id;
@@ -24,33 +25,22 @@ class CategoriaModelo {
       id: doc.id,
       nombre: data['nombre'] ?? 'Sin Nombre',
       importancia: data['importancia'] ?? 'MEDIA',
-      // Convertidores especiales (Helper functions)
+      
+      // Ayudante de Color (Hex a Color)
       color: _hexToColor(data['color'] ?? '#808080'), 
-      icono: _stringToIcon(data['icono'] ?? 'alerta'),
+      
+      // 2. CAMBIO AQUÍ: Usamos nuestro nuevo Diccionario
+      icono: UtilidadIconos.obtenerIcono(data['icono']), 
     );
   }
 
-  // --- AYUDANTE 1: Convierte texto Hex (#FF0000) a Color Flutter ---
+  // --- AYUDANTE: Convierte texto Hex (#FF0000) a Color Flutter ---
   static Color _hexToColor(String hexCode) {
     try {
-      // Quita el '#' si lo tiene y agrega 'FF' para la opacidad
       String cleanHex = hexCode.replaceAll('#', '');
       return Color(int.parse('FF$cleanHex', radix: 16));
     } catch (e) {
-      return Colors.grey; // Si falla, devuelve gris
-    }
-  }
-
-  // --- AYUDANTE 2: Convierte palabra clave a Icono ---
-  static IconData _stringToIcon(String nombreIcono) {
-    switch (nombreIcono) {
-      case 'fuego': return Icons.local_fire_department;
-      case 'carro': return Icons.car_crash;
-      case 'salvavidas': return Icons.health_and_safety;
-      case 'medico': return Icons.medical_services;
-      case 'agua': return Icons.water_drop;
-      case 'gas': return Icons.propane_tank;
-      default: return Icons.warning_amber_rounded;
+      return Colors.grey; 
     }
   }
 }

@@ -2,17 +2,36 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../modelos/emergencia_modelo.dart';
 
 class ServicioEmergencias {
-  final FirebaseFirestore _db = FirebaseFirestore.instance;
+  final CollectionReference _coleccion = FirebaseFirestore.instance.collection('emergencias');
 
-  // Stream: Es como un río de datos. Si algo cambia en Firebase, 
-  // la app se entera al instante.
-  Stream<List<EmergenciaModelo>> obtenerAlertasEnTiempoReal() {
-    return _db
-        .collection('emergencias') // Escuchamos esta colección (aunque aún no exista)
-        .orderBy('fecha_hora', descending: true) // Las más nuevas primero
+  // 1. OBTENER SOLO ACTIVAS (Para el Dashboard)
+  Stream<List<EmergenciaModelo>> obtenerAlertasActivas() {
+    return _coleccion
+        .where('estado', isEqualTo: 'activa') // <--- EL FILTRO MÁGICO
+        .orderBy('fecha_hora', descending: true)
         .snapshots()
-        .map((snapshot) => 
-            snapshot.docs.map((doc) => EmergenciaModelo.desdeFirestore(doc)).toList()
-        );
+        .map((snapshot) {
+          return snapshot.docs.map((doc) {
+            return EmergenciaModelo.desdeFirestore(doc);
+          }).toList();
+        });
+  }
+
+  // 2. OBTENER SOLO FINALIZADAS (Para el Historial)
+  Stream<List<EmergenciaModelo>> obtenerHistorial() {
+    return _coleccion
+        .where('estado', isEqualTo: 'finalizada')
+        .orderBy('fecha_hora', descending: true)
+        .snapshots()
+        .map((snapshot) {
+          return snapshot.docs.map((doc) {
+            return EmergenciaModelo.desdeFirestore(doc);
+          }).toList();
+        });
+  }
+
+  // 3. CREAR ALERTA
+  Future<void> crearEmergencia(EmergenciaModelo emergencia) async {
+    await _coleccion.doc(emergencia.id).set(emergencia.toMap());
   }
 }
