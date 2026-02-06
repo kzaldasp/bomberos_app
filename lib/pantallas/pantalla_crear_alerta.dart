@@ -4,7 +4,7 @@ import 'package:latlong2/latlong.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../servicios/servicio_auth.dart';
 import '../modelos/categoria_modelo.dart';
-
+import '../config/utilidad_mensajes.dart'; // <--- Importar la utilidad
 class PantallaCrearAlerta extends StatefulWidget {
   final CategoriaModelo categoria;
 
@@ -31,7 +31,7 @@ class _PantallaCrearAlertaState extends State<PantallaCrearAlerta> {
     super.dispose();
   }
 
-  // Helper: Convierte Color(0xFFF57C00) -> String "#F57C00"
+  // Ayudante: Color -> String Hex (#F57C00)
   String _colorToHex(Color color) {
     return '#${color.value.toRadixString(16).substring(2).toUpperCase()}';
   }
@@ -41,38 +41,30 @@ class _PantallaCrearAlertaState extends State<PantallaCrearAlerta> {
     setState(() => _guardando = true);
 
     try {
-      // 1. PREPARAR DATOS EXACTOS COMO LOS PEDISTE
-      // Convertimos el color de vuelta a String Hex
+      // 1. Color Hexadecimal
       final String colorString = _colorToHex(widget.categoria.color);
       
-      // Asumimos que el ID de la categoría (ej: 'incendio') o una propiedad 'nombreIcono'
-      // contiene el string "car_crash" o "local_fire_department".
-      // Si tu modelo no tiene el campo 'nombreIcono', usamos 'id' o lo que uses para el string del icono.
-      // Aquí intentaré usar una propiedad 'nombreIcono' si existe, si no, uso el ID como fallback.
-      final String iconoString = widget.categoria.id; // O widget.categoria.nombreIcono
+      // 2. CORRECCIÓN: Usamos el nombre original del icono que guardamos en el modelo
+      final String iconoString = widget.categoria.nombreIcono; // Ej: "car_crash"
 
       final alerta = {
-        // Datos de Identificación
+        // Datos básicos
         "titulo": widget.categoria.nombre,
-        "tipo_id": widget.categoria.id,
-        "tipo_nombre": widget.categoria.nombre,
-        "importancia": widget.categoria.importancia,
-        
-        // --- AQUÍ ESTÁ LO QUE PEDISTE ---
-        // Guardamos los strings exactos para pintar luego
-        "color": colorString,  // Ej: "#F57C00"
-        "icono": iconoString,  // Ej: "car_crash" (o el ID que mapea al icono)
-        // -------------------------------
-
         "descripcion": _descController.text.trim().isEmpty 
             ? "Sin detalles adicionales" 
             : _descController.text.trim(),
-            
-        "estado": "activa",
         "fecha_hora": FieldValue.serverTimestamp(),
+        "estado": "activa",
         "creado_por_uid": ServicioAuth().usuarioActual?.uid,
         "ubicacion": GeoPoint(_ubicacionSeleccionada.latitude, _ubicacionSeleccionada.longitude),
-        "respuestas": [] 
+        "respuestas": [],
+
+        // --- SNAPSHOT DE LA CATEGORÍA ---
+        "tipo_id": widget.categoria.id,
+        "nombre": widget.categoria.nombre,
+        "importancia": widget.categoria.importancia,
+        "color": colorString, 
+        "icono": iconoString, // <--- Ahora sí guarda "car_crash" o "medico"
       };
 
       await FirebaseFirestore.instance.collection('emergencias').add(alerta);
@@ -81,22 +73,16 @@ class _PantallaCrearAlertaState extends State<PantallaCrearAlerta> {
         Navigator.pop(context); 
         Navigator.pop(context); 
         
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Row(children: [
-              const Icon(Icons.check_circle, color: Colors.white),
-              const SizedBox(width: 10),
-              Text("¡ALERTA DE ${widget.categoria.nombre.toUpperCase()} ENVIADA!"),
-            ]),
-            backgroundColor: widget.categoria.color,
-            behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-          )
+UtilidadMensajes.mostrarPersonalizado(
+          context, 
+          "¡ALERTA DE ${widget.categoria.nombre.toUpperCase()} ENVIADA!", 
+          widget.categoria.color, 
+          Icons.campaign_rounded
         );
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error: $e"), backgroundColor: Colors.red));
+UtilidadMensajes.mostrarError(context, "No se pudo enviar: $e");
         setState(() => _guardando = false);
       }
     }
@@ -137,6 +123,7 @@ class _PantallaCrearAlertaState extends State<PantallaCrearAlerta> {
                 fillColor: Colors.grey.shade50,
               ),
               maxLines: 2,
+              textCapitalization: TextCapitalization.sentences,
             ),
           ),
 
@@ -158,7 +145,7 @@ class _PantallaCrearAlertaState extends State<PantallaCrearAlerta> {
           
           const SizedBox(height: 10),
 
-          // 3. MAPA CON MIRA
+          // 3. MAPA
           Expanded(
             child: Container(
               margin: const EdgeInsets.symmetric(horizontal: 20),
@@ -199,7 +186,7 @@ class _PantallaCrearAlertaState extends State<PantallaCrearAlerta> {
                                       border: Border.all(color: colorCat.withOpacity(0.5), width: 1),
                                     ),
                                   ),
-                                  // Punto central
+                                  // Punto
                                   Container(
                                     width: 12, height: 12,
                                     decoration: BoxDecoration(
@@ -240,7 +227,7 @@ class _PantallaCrearAlertaState extends State<PantallaCrearAlerta> {
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
                 ),
                 icon: _guardando 
-                  ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(color: Colors.white))
+                  ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
                   : const Icon(Icons.podcasts, size: 26),
                 label: Text(
                   _guardando ? "ENVIANDO..." : "CONFIRMAR ALERTA",

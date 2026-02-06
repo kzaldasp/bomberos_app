@@ -65,6 +65,7 @@ class _PantallaDashboardState extends State<PantallaDashboard> {
 
   @override
   Widget build(BuildContext context) {
+
     return Scaffold(
       backgroundColor: TemaApp.fondoClaro,
       appBar: AppBar(

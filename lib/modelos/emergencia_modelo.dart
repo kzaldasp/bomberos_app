@@ -34,18 +34,23 @@ class EmergenciaModelo {
     final data = doc.data() as Map<String, dynamic>;
     final String tId = data['tipo_id'] ?? 'general';
 
-    // A. RECUPERAR COLOR (Prioridad: Lo que viene guardado en la BD)
+    // A. RECUPERAR COLOR
+    // Leemos el campo 'color' (ej: "#8E24AA").
+    // (Mantenemos 'color_hex' como respaldo por si acaso quedaron datos viejos)
     Color colorFinal;
-    if (data['color_hex'] != null) {
-      // Si existe el campo 'color_hex', lo convertimos a Color
-      colorFinal = _hexToColor(data['color_hex']);
+    String? colorString = data['color'] ?? data['color_hex'];
+
+    if (colorString != null) {
+      colorFinal = _hexToColor(colorString);
     } else {
-      // BACKUP: Solo para emergencias viejas que no tengan color guardado
+      // Si no hay color guardado, usamos el default
       colorFinal = _colorPorDefecto(tId);
     }
 
-    // B. RECUPERAR ICONO (Usamos el ID para obtenerlo del catálogo de iconos)
-    IconData iconoFinal = UtilidadIconos.obtenerIcono(tId);
+    // B. RECUPERAR ICONO
+    // Leemos el campo 'icono' (ej: "medico"). Si no existe, usamos 'tipo_id'.
+    String nombreIcono = data['icono'] ?? tId;
+    IconData iconoFinal = UtilidadIconos.obtenerIcono(nombreIcono);
 
     return EmergenciaModelo(
       id: doc.id,
@@ -53,7 +58,7 @@ class EmergenciaModelo {
       descripcion: data['descripcion'] ?? 'Sin detalles',
       tipoId: tId,
       fechaHora: data['fecha_hora'] ?? Timestamp.now(),
-      // Soporte para ambos nombres de campo por seguridad
+      // Soporte para ambos nombres de campo de ubicación
       ubicacion: data['ubicacion'] ?? data['ubicacion_emergencia'], 
       estado: data['estado'] ?? 'activa',
       respuestas: List<Map<String, dynamic>>.from(data['respuestas'] ?? []),
@@ -62,7 +67,7 @@ class EmergenciaModelo {
     );
   }
 
-  // --- 2. GUARDAR DATOS (No guardamos visuales aquí, eso se hace al crear) ---
+  // --- 2. GUARDAR DATOS ---
   Map<String, dynamic> toMap() {
     return {
       'titulo': titulo,
@@ -72,6 +77,8 @@ class EmergenciaModelo {
       'ubicacion': ubicacion,
       'estado': estado,
       'respuestas': respuestas,
+      // Nota: El color y el icono no se guardan aquí porque este método
+      // es usualmente para actualizaciones. Se guardan al CREAR la alerta.
     };
   }
 
@@ -84,7 +91,7 @@ class EmergenciaModelo {
       if (cleanHex.length == 6) cleanHex = 'FF$cleanHex'; // Agregar opacidad si falta
       return Color(int.parse(cleanHex, radix: 16));
     } catch (e) {
-      return Colors.grey; // Si falla, devolvemos gris
+      return Colors.grey; 
     }
   }
 
@@ -94,6 +101,7 @@ class EmergenciaModelo {
       case 'incendio': return const Color(0xFFD32F2F);
       case 'medico': return const Color(0xFF2E7D32);
       case 'accidente': return const Color(0xFFF57C00);
+      case 'inundacion': return const Color(0xFF0277BD);
       default: return Colors.blueGrey;
     }
   }

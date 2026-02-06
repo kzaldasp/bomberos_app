@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import '../config/utilidad_iconos.dart'; // <--- 1. IMPORTAR ESTO
+import '../config/utilidad_iconos.dart';
 
 class CategoriaModelo {
   final String id;
@@ -8,6 +8,7 @@ class CategoriaModelo {
   final String importancia;
   final Color color;
   final IconData icono;
+  final String nombreIcono; // <--- NUEVO: Guardamos el string original (ej: "car_crash")
 
   CategoriaModelo({
     required this.id,
@@ -15,9 +16,9 @@ class CategoriaModelo {
     required this.importancia,
     required this.color,
     required this.icono,
+    required this.nombreIcono, // Requerido
   });
 
-  // Fábrica: Convierte el documento de Firebase en un objeto útil
   factory CategoriaModelo.desdeFirestore(DocumentSnapshot doc) {
     final data = doc.data() as Map<String, dynamic>;
 
@@ -26,15 +27,17 @@ class CategoriaModelo {
       nombre: data['nombre'] ?? 'Sin Nombre',
       importancia: data['importancia'] ?? 'MEDIA',
       
-      // Ayudante de Color (Hex a Color)
+      // Convertimos el Hex a Color
       color: _hexToColor(data['color'] ?? '#808080'), 
       
-      // 2. CAMBIO AQUÍ: Usamos nuestro nuevo Diccionario
+      // Convertimos el String a IconData (Visual)
       icono: UtilidadIconos.obtenerIcono(data['icono']), 
+      
+      // GUARDAMOS EL STRING ORIGINAL (Para poder reenviarlo luego)
+      nombreIcono: data['icono'] ?? 'notifications', 
     );
   }
 
-  // --- AYUDANTE: Convierte texto Hex (#FF0000) a Color Flutter ---
   static Color _hexToColor(String hexCode) {
     try {
       String cleanHex = hexCode.replaceAll('#', '');

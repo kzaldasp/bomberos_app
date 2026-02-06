@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import '../config/tema_app.dart';
 import '../servicios/servicio_auth.dart';
 import 'pantalla_dashboard.dart';
-
+import '../config/utilidad_mensajes.dart'; // <--- Importar
 class PantallaLogin extends StatefulWidget {
   const PantallaLogin({super.key});
 
@@ -35,13 +35,8 @@ class _PantallaLoginState extends State<PantallaLogin> {
       }
     } else {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(resultado ?? "Error desconocido"),
-            backgroundColor: TemaApp.rojoBombero,
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
+        UtilidadMensajes.mostrarError(context, resultado ?? "Error desconocido");
+
       }
     }
   }

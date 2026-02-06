@@ -3,6 +3,7 @@ import '../modelos/emergencia_modelo.dart';
 import '../servicios/servicio_emergencias.dart';
 import 'tarjeta_emergencia.dart';
 import '../pantallas/pantalla_detalle_alerta.dart';
+import 'vista_sin_alertas.dart';
 
 class VistaListaAlertas extends StatelessWidget {
   final ServicioEmergencias servicioEmergencias;
@@ -22,7 +23,12 @@ class VistaListaAlertas extends StatelessWidget {
       stream: servicioEmergencias.obtenerAlertasActivas(), 
       
       builder: (context, snapshot) {
-        
+        // En vista_lista_alertas.dart
+
+        if (!snapshot.hasData ) {
+          // AQUÍ LLAMAS AL NUEVO WIDGET
+          return const VistaSinAlertas(); 
+        }
         // 1. Estado de Carga
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Center(child: CircularProgressIndicator());

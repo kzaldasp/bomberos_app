@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import '../modelos/emergencia_modelo.dart';
-// import '../config/tema_app.dart'; // Ya no lo necesitamos si usamos colores dinámicos
 
 class TarjetaEmergencia extends StatelessWidget {
   final EmergenciaModelo alerta;
@@ -14,11 +13,12 @@ class TarjetaEmergencia extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // 1. Definir estado y color maestro
+    // 1. Validar estado
     final bool esFinalizada = alerta.estado == 'finalizada';
     
-    // Si está activa, el color es el de la categoría (Rojo, Verde, etc.)
-    // Si está finalizada, es Gris.
+    // 2. DEFINIR EL COLOR MAESTRO
+    // Si la alerta está activa, usamos el color que viene en el modelo (leído de Firebase).
+    // Si está finalizada, usamos gris para indicar "historial".
     final Color colorPrioritario = esFinalizada ? Colors.grey : alerta.colorCategoria;
 
     return Container(
@@ -44,20 +44,23 @@ class TarjetaEmergencia extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // --- CABECERA ---
+                // --- CABECERA (Chip de Categoría) ---
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                       decoration: BoxDecoration(
+                        // Fondo suave del mismo color
                         color: colorPrioritario.withOpacity(0.1),
                         borderRadius: BorderRadius.circular(10),
                       ),
                       child: Row(
                         children: [
+                          // Icono del mismo color
                           Icon(alerta.iconoCategoria, size: 14, color: colorPrioritario),
                           const SizedBox(width: 5),
+                          // Texto del mismo color
                           Text(
                             alerta.tipoId.toUpperCase(),
                             style: TextStyle(
@@ -69,6 +72,7 @@ class TarjetaEmergencia extends StatelessWidget {
                         ],
                       ),
                     ),
+                    // Hora
                     Text(
                       "${alerta.fechaHora.toDate().hour}:${alerta.fechaHora.toDate().minute.toString().padLeft(2, '0')}",
                       style: TextStyle(color: Colors.grey.shade400, fontSize: 12),
@@ -84,6 +88,7 @@ class TarjetaEmergencia extends StatelessWidget {
                   style: TextStyle(
                     fontSize: 18, 
                     fontWeight: FontWeight.w800,
+                    // Si está finalizada, el título se pone gris para no llamar la atención
                     color: esFinalizada ? Colors.grey : const Color(0xFF2D3436),
                   ),
                 ),
@@ -100,14 +105,14 @@ class TarjetaEmergencia extends StatelessWidget {
                 
                 const SizedBox(height: 15),
                 
-                // --- FOOTER (CORREGIDO) ---
+                // --- FOOTER (Estado Operativo) ---
                 Row(
                   children: [
-                    // Icono de estado (Radar o Archivo)
+                    // Icono de estado
                     Icon(
-                      esFinalizada ? Icons.archive_outlined : Icons.sensors, 
+                      esFinalizada ? Icons.archive_outlined : Icons.sensors_rounded, 
                       size: 16, 
-                      color: colorPrioritario // <--- Ahora usa el color correcto
+                      color: colorPrioritario // <--- Usa el color correcto
                     ),
                     const SizedBox(width: 6),
                     
@@ -117,7 +122,7 @@ class TarjetaEmergencia extends StatelessWidget {
                         ? "CASO CERRADO" 
                         : "${alerta.respuestas.length} EN CAMINO",
                       style: TextStyle(
-                        color: colorPrioritario, // <--- Ahora usa el color correcto (Rojo/Verde), NO Azul
+                        color: colorPrioritario, // <--- Usa el color correcto
                         fontWeight: FontWeight.bold,
                         fontSize: 11,
                         letterSpacing: 0.5

@@ -44,26 +44,10 @@ class MenuLateral extends StatelessWidget {
                 // Fila con Avatar y Logo
                 Row(
                   children: [
-                    Container(
-                      padding: const EdgeInsets.all(3),
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        border: Border.all(color: Colors.white.withOpacity(0.3), width: 2),
-                      ),
-                      child: CircleAvatar(
-                        radius: 35,
-                        backgroundColor: Colors.white,
-                        child: Text(
-                          nombreUsuario.isNotEmpty ? nombreUsuario[0].toUpperCase() : "B",
-                          style: const TextStyle(fontSize: 28, color: TemaApp.azulInstitucional, fontWeight: FontWeight.bold),
-                        ),
-                      ),
-                    ),
-                    const Spacer(),
                     // Logo sutil en la esquina
                     Opacity(
                       opacity: 0.8,
-                      child: Image.asset('assets/images/logo.png', width: 50, height: 50),
+                      child: Image.asset('assets/images/logo.png', width: 65, height: 65),
                     ),
                   ],
                 ),
