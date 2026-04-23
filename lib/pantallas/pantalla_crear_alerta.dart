@@ -1,10 +1,14 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+
 import '../servicios/servicio_auth.dart';
 import '../modelos/categoria_modelo.dart';
-import '../config/utilidad_mensajes.dart'; // <--- Importar la utilidad
+import '../config/utilidad_mensajes.dart'; 
+import '../servicios/servicio_almacenamiento.dart';
+
 class PantallaCrearAlerta extends StatefulWidget {
   final CategoriaModelo categoria;
 
@@ -15,9 +19,19 @@ class PantallaCrearAlerta extends StatefulWidget {
 }
 
 class _PantallaCrearAlertaState extends State<PantallaCrearAlerta> {
+  // Coordenadas iniciales (Cotacachi)
   LatLng _ubicacionSeleccionada = const LatLng(0.2343, -78.2625);
   late final TextEditingController _descController;
+  
+  // Variable unificada para bloquear la pantalla mientras carga
   bool _guardando = false;
+
+  // Variables para el archivo adjunto (Cloudinary)
+  File? _archivoAdjunto;
+  final ServicioAlmacenamiento _servicioAlmacenamiento = ServicioAlmacenamiento();
+
+  // Lista para la alerta selectiva (Tipo WhatsApp)
+  List<String> _usuariosSeleccionados = [];
 
   @override
   void initState() {
@@ -36,19 +50,91 @@ class _PantallaCrearAlertaState extends State<PantallaCrearAlerta> {
     return '#${color.value.toRadixString(16).substring(2).toUpperCase()}';
   }
 
+  // Función que abre el selector de destinatarios desde abajo
+  void _abrirSelectorUsuarios() {
+    showModalBottomSheet(
+      context: context,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            return Container(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                children: [
+                  const Text(
+                    "Seleccionar Destinatarios",
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  ),
+                  const Text(
+                    "Si no seleccionas ninguno, se enviará a todos.",
+                    style: TextStyle(fontSize: 12, color: Colors.grey),
+                  ),
+                  const Divider(),
+                  Expanded(
+                    child: StreamBuilder<QuerySnapshot>(
+                      stream: FirebaseFirestore.instance.collection('usuarios').snapshots(),
+                      builder: (context, snapshot) {
+                        if (!snapshot.hasData) {
+                          return const Center(child: CircularProgressIndicator());
+                        }
+
+                        final usuarios = snapshot.data!.docs;
+
+                        return ListView.builder(
+                          itemCount: usuarios.length,
+                          itemBuilder: (context, index) {
+                            var user = usuarios[index];
+                            String userId = user.id;
+                            String nombreUser = user['nombre'] ?? 'Usuario';
+
+                            return CheckboxListTile(
+                              title: Text(nombreUser),
+                              value: _usuariosSeleccionados.contains(userId),
+                              activeColor: widget.categoria.color,
+                              onChanged: (bool? seleccionado) {
+                                setModalState(() { // Actualiza el modal en vivo
+                                  if (seleccionado == true) {
+                                    _usuariosSeleccionados.add(userId);
+                                  } else {
+                                    _usuariosSeleccionados.remove(userId);
+                                  }
+                                });
+                                setState(() {}); // Actualiza la pantalla principal
+                              },
+                            );
+                          },
+                        );
+                      },
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  // MÉTODO PRINCIPAL UNIFICADO: Sube archivo (si hay) y guarda en Firestore
   void _publicarAlerta() async {
     if (_guardando) return;
     setState(() => _guardando = true);
 
     try {
-      // 1. Color Hexadecimal
-      final String colorString = _colorToHex(widget.categoria.color);
-      
-      // 2. CORRECCIÓN: Usamos el nombre original del icono que guardamos en el modelo
-      final String iconoString = widget.categoria.nombreIcono; // Ej: "car_crash"
+      String? urlSubida;
 
+      // 1. Subir archivo a Cloudinary (si el usuario eligió uno)
+      if (_archivoAdjunto != null) {
+        urlSubida = await _servicioAlmacenamiento.subirArchivoAdjunto(_archivoAdjunto!);
+      }
+
+      // 2. Preparar datos visuales
+      final String colorString = _colorToHex(widget.categoria.color);
+      final String iconoString = widget.categoria.nombreIcono; 
+
+      // 3. Crear el documento completo para Firestore
       final alerta = {
-        // Datos básicos
         "titulo": widget.categoria.nombre,
         "descripcion": _descController.text.trim().isEmpty 
             ? "Sin detalles adicionales" 
@@ -58,22 +144,28 @@ class _PantallaCrearAlertaState extends State<PantallaCrearAlerta> {
         "creado_por_uid": ServicioAuth().usuarioActual?.uid,
         "ubicacion": GeoPoint(_ubicacionSeleccionada.latitude, _ubicacionSeleccionada.longitude),
         "respuestas": [],
-
-        // --- SNAPSHOT DE LA CATEGORÍA ---
+        
+        // --- NUEVOS CAMPOS AÑADIDOS ---
+        "url_adjunto": urlSubida, 
+        "destinatarios": _usuariosSeleccionados, // Lista vacía = Enviar a todos
+        
+        // Información de Categoría (Para no requerir joins en lectura)
         "tipo_id": widget.categoria.id,
         "nombre": widget.categoria.nombre,
         "importancia": widget.categoria.importancia,
         "color": colorString, 
-        "icono": iconoString, // <--- Ahora sí guarda "car_crash" o "medico"
+        "icono": iconoString, 
       };
 
+      // 4. Guardar en Base de Datos
       await FirebaseFirestore.instance.collection('emergencias').add(alerta);
 
+      // 5. Salir con éxito
       if (mounted) {
-        Navigator.pop(context); 
-        Navigator.pop(context); 
+        Navigator.pop(context); // Cierra pantalla actual
+        Navigator.pop(context); // Cierra selector de tipo
         
-UtilidadMensajes.mostrarPersonalizado(
+        UtilidadMensajes.mostrarPersonalizado(
           context, 
           "¡ALERTA DE ${widget.categoria.nombre.toUpperCase()} ENVIADA!", 
           widget.categoria.color, 
@@ -82,7 +174,7 @@ UtilidadMensajes.mostrarPersonalizado(
       }
     } catch (e) {
       if (mounted) {
-UtilidadMensajes.mostrarError(context, "No se pudo enviar: $e");
+        UtilidadMensajes.mostrarError(context, "No se pudo enviar: $e");
         setState(() => _guardando = false);
       }
     }
@@ -103,33 +195,91 @@ UtilidadMensajes.mostrarError(context, "No se pudo enviar: $e");
       ),
       body: Column(
         children: [
-          // 1. INPUT
+          // 1. CONTENEDOR SUPERIOR (Texto + Archivo + Destinatarios)
           Container(
-            padding: const EdgeInsets.fromLTRB(20, 20, 20, 30),
+            padding: const EdgeInsets.fromLTRB(20, 20, 20, 15),
             decoration: BoxDecoration(
               color: Colors.white,
               borderRadius: const BorderRadius.vertical(bottom: Radius.circular(30)),
               boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 15, offset: const Offset(0, 5))]
             ),
-            child: TextField(
-              controller: _descController,
-              decoration: InputDecoration(
-                labelText: "Detalles adicionales",
-                hintText: "Ej: Piso 2, referencia visual...",
-                prefixIcon: Icon(Icons.description_outlined, color: colorCat),
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(15), borderSide: BorderSide(color: Colors.grey.shade300)),
-                focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(15), borderSide: BorderSide(color: colorCat, width: 2)),
-                filled: true,
-                fillColor: Colors.grey.shade50,
-              ),
-              maxLines: 2,
-              textCapitalization: TextCapitalization.sentences,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                // 1.1 Campo de Texto
+                TextField(
+                  controller: _descController,
+                  decoration: InputDecoration(
+                    labelText: "Detalles adicionales",
+                    hintText: "Ej: Piso 2, referencia visual...",
+                    prefixIcon: Icon(Icons.description_outlined, color: colorCat),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(15), borderSide: BorderSide(color: Colors.grey.shade300)),
+                    focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(15), borderSide: BorderSide(color: colorCat, width: 2)),
+                    filled: true,
+                    fillColor: Colors.grey.shade50,
+                  ),
+                  maxLines: 2,
+                  textCapitalization: TextCapitalization.sentences,
+                ),
+                const SizedBox(height: 10),
+
+                // 1.2 Botón de Adjuntar Archivo
+                Row(
+                  children: [
+                    IconButton(
+                      icon: Icon(
+                        _archivoAdjunto == null ? Icons.attach_file : Icons.check_circle,
+                        color: _archivoAdjunto == null ? Colors.grey : Colors.green,
+                        size: 30,
+                      ),
+                      onPressed: () async {
+                        File? archivo = await _servicioAlmacenamiento.seleccionarArchivo();
+                        if (archivo != null) {
+                          setState(() => _archivoAdjunto = archivo);
+                          if (mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text("Archivo adjuntado correctamente")),
+                            );
+                          }
+                        }
+                      },
+                    ),
+                    Expanded(
+                      child: Text(
+                        _archivoAdjunto == null 
+                            ? "Adjuntar PDF o Imagen (Opcional)" 
+                            : "Archivo listo para enviar",
+                        style: TextStyle(
+                          color: _archivoAdjunto == null ? Colors.black54 : Colors.green,
+                          fontWeight: FontWeight.bold,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
+
+                // 1.3 Botón Selector de Usuarios
+                ElevatedButton.icon(
+                  onPressed: _abrirSelectorUsuarios,
+                  icon: const Icon(Icons.people),
+                  label: Text(
+                    _usuariosSeleccionados.isEmpty 
+                        ? "Enviar a TODOS" 
+                        : "Enviar a ${_usuariosSeleccionados.length} personas"
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.orangeAccent,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))
+                  ),
+                ),
+              ],
             ),
           ),
+          const SizedBox(height: 15),
 
-          const SizedBox(height: 20),
-
-          // 2. INSTRUCCIÓN
+          // 2. INSTRUCCIÓN DE MAPA
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 20),
             child: Row(
@@ -142,10 +292,9 @@ UtilidadMensajes.mostrarError(context, "No se pudo enviar: $e");
               ],
             ),
           ),
-          
           const SizedBox(height: 10),
 
-          // 3. MAPA
+          // 3. MAPA EXPANDIDO
           Expanded(
             child: Container(
               margin: const EdgeInsets.symmetric(horizontal: 20),
@@ -156,54 +305,47 @@ UtilidadMensajes.mostrarError(context, "No se pudo enviar: $e");
               ),
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(16),
-                child: Stack(
+                child: FlutterMap(
+                  options: MapOptions(
+                    initialCenter: _ubicacionSeleccionada,
+                    initialZoom: 16.5,
+                    onTap: (_, point) => setState(() => _ubicacionSeleccionada = point),
+                  ),
                   children: [
-                    FlutterMap(
-                      options: MapOptions(
-                        initialCenter: _ubicacionSeleccionada,
-                        initialZoom: 16.5,
-                        onTap: (_, point) => setState(() => _ubicacionSeleccionada = point),
-                      ),
-                      children: [
-                        TileLayer(
-                          urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                          userAgentPackageName: 'com.bomberos.app',
-                        ),
-                        MarkerLayer(
-                          markers: [
-                            Marker(
-                              point: _ubicacionSeleccionada,
-                              width: 60, height: 60,
-                              child: Stack(
-                                alignment: Alignment.center,
-                                children: [
-                                  // Halo
-                                  Container(
-                                    width: 60, height: 60,
-                                    decoration: BoxDecoration(
-                                      color: colorCat.withOpacity(0.2),
-                                      shape: BoxShape.circle,
-                                      border: Border.all(color: colorCat.withOpacity(0.5), width: 1),
-                                    ),
-                                  ),
-                                  // Punto
-                                  Container(
-                                    width: 12, height: 12,
-                                    decoration: BoxDecoration(
-                                      color: Colors.white,
-                                      shape: BoxShape.circle,
-                                      border: Border.all(color: colorCat, width: 3),
-                                    ),
-                                  ),
-                                  // Icono
-                                  Positioned(
-                                    top: 5,
-                                    child: Icon(widget.categoria.icono, size: 18, color: colorCat),
-                                  )
-                                ],
+                    TileLayer(
+                      urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                      userAgentPackageName: 'com.bomberos.app',
+                    ),
+                    MarkerLayer(
+                      markers: [
+                        Marker(
+                          point: _ubicacionSeleccionada,
+                          width: 60, height: 60,
+                          child: Stack(
+                            alignment: Alignment.center,
+                            children: [
+                              Container(
+                                width: 60, height: 60,
+                                decoration: BoxDecoration(
+                                  color: colorCat.withOpacity(0.2),
+                                  shape: BoxShape.circle,
+                                  border: Border.all(color: colorCat.withOpacity(0.5), width: 1),
+                                ),
                               ),
-                            ),
-                          ],
+                              Container(
+                                width: 12, height: 12,
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  shape: BoxShape.circle,
+                                  border: Border.all(color: colorCat, width: 3),
+                                ),
+                              ),
+                              Positioned(
+                                top: 5,
+                                child: Icon(widget.categoria.icono, size: 18, color: colorCat),
+                              )
+                            ],
+                          ),
                         ),
                       ],
                     ),
@@ -213,7 +355,7 @@ UtilidadMensajes.mostrarError(context, "No se pudo enviar: $e");
             ),
           ),
 
-          // 4. BOTÓN
+          // 4. BOTÓN FINAL DE CONFIRMACIÓN
           Container(
             padding: const EdgeInsets.all(20.0),
             child: SizedBox(

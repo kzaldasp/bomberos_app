@@ -58,7 +58,7 @@ class TemaApp {
       ),
 
       // 3. TARJETAS (Cards) FLOTANTES
-      cardTheme: CardTheme(
+      cardTheme: CardThemeData(
         color: Colors.white,
         elevation: 0, // Quitamos la sombra por defecto de Material
         shape: RoundedRectangleBorder(

@@ -12,6 +12,8 @@ class EmergenciaModelo {
   final String estado;
   final List<Map<String, dynamic>> respuestas;
 
+  final String? urlAdjunto;
+
   // PROPIEDADES VISUALES DIRECTAS
   final Color colorCategoria;
   final IconData iconoCategoria;
@@ -23,6 +25,7 @@ class EmergenciaModelo {
     required this.tipoId,
     required this.fechaHora,
     this.ubicacion,
+    this.urlAdjunto, // Lo hacemos opcional porque no todas tendrán archivo
     required this.estado,
     required this.respuestas,
     required this.colorCategoria,
@@ -62,6 +65,7 @@ class EmergenciaModelo {
       ubicacion: data['ubicacion'] ?? data['ubicacion_emergencia'], 
       estado: data['estado'] ?? 'activa',
       respuestas: List<Map<String, dynamic>>.from(data['respuestas'] ?? []),
+      urlAdjunto: data['url_adjunto'], // LEEMOS EL NUEVO CAMPO
       colorCategoria: colorFinal,
       iconoCategoria: iconoFinal,
     );
@@ -77,6 +81,7 @@ class EmergenciaModelo {
       'ubicacion': ubicacion,
       'estado': estado,
       'respuestas': respuestas,
+      'url_adjunto': urlAdjunto, // GUARDAMOS EL NUEVO CAMPO
       // Nota: El color y el icono no se guardan aquí porque este método
       // es usualmente para actualizaciones. Se guardan al CREAR la alerta.
     };
