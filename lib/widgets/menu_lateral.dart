@@ -1,3 +1,4 @@
+import 'package:bomberos_app/pantallas/pantalla_lista_eventos.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -101,6 +102,16 @@ class MenuLateral extends StatelessWidget {
                     );
                   },
                 ),
+                const SizedBox(height: 10),
+_ItemMenu(
+  icon: Icons.calendar_today_rounded,
+  text: "Eventos Institucionales",
+  isSelected: false,
+  onTap: () {
+    Navigator.pop(context);
+    Navigator.push(context, MaterialPageRoute(builder: (context) => const PantallaListaEventos()));
+  },
+),
                 const SizedBox(height: 10),
 
                 // OPCIONES EXCLUSIVAS PARA ADMINISTRADORES

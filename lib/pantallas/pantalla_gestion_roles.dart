@@ -1,6 +1,7 @@
+import 'package:bomberos_app/config/tema_app.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-
+import 'pantalla_crear_usuario.dart';
 class PantallaGestionRoles extends StatelessWidget {
   const PantallaGestionRoles({super.key});
 
@@ -12,6 +13,15 @@ class PantallaGestionRoles extends StatelessWidget {
         backgroundColor: Colors.blueGrey[800], // Un color más serio para admins
         foregroundColor: Colors.white,
       ),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () {
+          Navigator.push(context, MaterialPageRoute(builder: (context) => const PantallaCrearUsuario()));
+        },
+        backgroundColor: TemaApp.azulInstitucional,
+        icon: const Icon(Icons.add, color: Colors.white),
+        label: const Text("NUEVO PERSONAL", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+      ),
+      // ----------------------------
       body: StreamBuilder<QuerySnapshot>(
         // Escuchamos a la colección de usuarios en tiempo real
         stream: FirebaseFirestore.instance.collection('usuarios').snapshots(),

@@ -8,6 +8,7 @@ import '../servicios/servicio_auth.dart';
 import '../modelos/categoria_modelo.dart';
 import '../config/utilidad_mensajes.dart'; 
 import '../servicios/servicio_almacenamiento.dart';
+import '../servicios/servicio_notificaciones.dart'; 
 
 class PantallaCrearAlerta extends StatefulWidget {
   final CategoriaModelo categoria;
@@ -19,18 +20,18 @@ class PantallaCrearAlerta extends StatefulWidget {
 }
 
 class _PantallaCrearAlertaState extends State<PantallaCrearAlerta> {
-  // Coordenadas iniciales (Cotacachi)
+  // Coordenadas iniciales (Otavalo/Cotacachi)
   LatLng _ubicacionSeleccionada = const LatLng(0.2343, -78.2625);
   late final TextEditingController _descController;
   
-  // Variable unificada para bloquear la pantalla mientras carga
   bool _guardando = false;
 
-  // Variables para el archivo adjunto (Cloudinary)
+  // Archivo adjunto (Cloudinary)
   File? _archivoAdjunto;
   final ServicioAlmacenamiento _servicioAlmacenamiento = ServicioAlmacenamiento();
 
-  // Lista para la alerta selectiva (Tipo WhatsApp)
+  // --- NUEVA LÓGICA DE DESTINATARIOS ---
+  bool _enviarATodos = true; // Por defecto envía a general
   List<String> _usuariosSeleccionados = [];
 
   @override
@@ -45,68 +46,93 @@ class _PantallaCrearAlertaState extends State<PantallaCrearAlerta> {
     super.dispose();
   }
 
-  // Ayudante: Color -> String Hex (#F57C00)
   String _colorToHex(Color color) {
     return '#${color.value.toRadixString(16).substring(2).toUpperCase()}';
   }
 
-  // Función que abre el selector de destinatarios desde abajo
+  // Abre el modal de selección múltiple
   void _abrirSelectorUsuarios() {
     showModalBottomSheet(
       context: context,
+      isScrollControlled: true, // Para que ocupe buen espacio si hay muchos bomberos
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
       builder: (context) {
         return StatefulBuilder(
           builder: (context, setModalState) {
             return Container(
-              padding: const EdgeInsets.all(16),
+              height: MediaQuery.of(context).size.height * 0.6, // Ocupa el 60% de la pantalla
+              padding: const EdgeInsets.all(20),
               child: Column(
                 children: [
-                  const Text(
-                    "Seleccionar Destinatarios",
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  const Text("Seleccionar Personal", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 5),
+                  Text(
+                    "${_usuariosSeleccionados.length} bomberos seleccionados", 
+                    style: const TextStyle(color: Colors.grey, fontWeight: FontWeight.bold)
                   ),
-                  const Text(
-                    "Si no seleccionas ninguno, se enviará a todos.",
-                    style: TextStyle(fontSize: 12, color: Colors.grey),
-                  ),
-                  const Divider(),
+                  const Divider(height: 30),
+                  
+                  // Lista de Firebase
                   Expanded(
                     child: StreamBuilder<QuerySnapshot>(
                       stream: FirebaseFirestore.instance.collection('usuarios').snapshots(),
                       builder: (context, snapshot) {
-                        if (!snapshot.hasData) {
-                          return const Center(child: CircularProgressIndicator());
-                        }
+                        if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
 
                         final usuarios = snapshot.data!.docs;
 
-                        return ListView.builder(
+                  return ListView.builder(
                           itemCount: usuarios.length,
                           itemBuilder: (context, index) {
                             var user = usuarios[index];
                             String userId = user.id;
-                            String nombreUser = user['nombre'] ?? 'Usuario';
+                            
+                            // 🚀 CORRECCIÓN: Convertimos los datos a un Map seguro
+                            Map<String, dynamic> userData = user.data() as Map<String, dynamic>;
+
+                            // Ahora sí podemos usar ?? con total seguridad
+                            String nombreUser = userData['nombre'] ?? 'Usuario Desconocido';
+                            String rangoUser = userData['rol'] ?? 'Operativo';
 
                             return CheckboxListTile(
-                              title: Text(nombreUser),
+                              title: Text(nombreUser, style: const TextStyle(fontWeight: FontWeight.bold)),
+                              subtitle: Text(rangoUser, style: const TextStyle(fontSize: 12)),
                               value: _usuariosSeleccionados.contains(userId),
                               activeColor: widget.categoria.color,
                               onChanged: (bool? seleccionado) {
-                                setModalState(() { // Actualiza el modal en vivo
+                                setModalState(() { 
                                   if (seleccionado == true) {
                                     _usuariosSeleccionados.add(userId);
                                   } else {
                                     _usuariosSeleccionados.remove(userId);
                                   }
                                 });
-                                setState(() {}); // Actualiza la pantalla principal
+                                setState(() {}); // Refresca la pantalla trasera
                               },
                             );
                           },
-                        );
-                      },
+                        );   },
                     ),
                   ),
+                  
+                  // Botón de confirmar selección
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: widget.categoria.color,
+                        foregroundColor: Colors.white,
+                      ),
+                      onPressed: () {
+                        if (_usuariosSeleccionados.isEmpty) {
+                          // Si desmarcó a todos y aceptó, regresamos al modo "Todos" automáticamente
+                          setState(() => _enviarATodos = true);
+                        }
+                        Navigator.pop(context);
+                      },
+                      child: const Text("CONFIRMAR LISTA"),
+                    ),
+                  )
                 ],
               ),
             );
@@ -116,40 +142,39 @@ class _PantallaCrearAlertaState extends State<PantallaCrearAlerta> {
     );
   }
 
-  // MÉTODO PRINCIPAL UNIFICADO: Sube archivo (si hay) y guarda en Firestore
   void _publicarAlerta() async {
     if (_guardando) return;
+    
+    // Validación lógica: Si eligió "Selectivo" pero no escogió a nadie
+    if (!_enviarATodos && _usuariosSeleccionados.isEmpty) {
+      UtilidadMensajes.mostrarError(context, "Debes seleccionar al menos a un bombero, o cambiar a 'Todo el personal'.");
+      return;
+    }
+
     setState(() => _guardando = true);
 
     try {
       String? urlSubida;
-
-      // 1. Subir archivo a Cloudinary (si el usuario eligió uno)
       if (_archivoAdjunto != null) {
         urlSubida = await _servicioAlmacenamiento.subirArchivoAdjunto(_archivoAdjunto!);
       }
 
-      // 2. Preparar datos visuales
       final String colorString = _colorToHex(widget.categoria.color);
       final String iconoString = widget.categoria.nombreIcono; 
 
-      // 3. Crear el documento completo para Firestore
+      // Determinamos la lista final (Si es a todos, la lista va vacía)
+      final List<String> listaFinalDestinos = _enviarATodos ? [] : _usuariosSeleccionados;
+
       final alerta = {
         "titulo": widget.categoria.nombre,
-        "descripcion": _descController.text.trim().isEmpty 
-            ? "Sin detalles adicionales" 
-            : _descController.text.trim(),
+        "descripcion": _descController.text.trim().isEmpty ? "Sin detalles adicionales" : _descController.text.trim(),
         "fecha_hora": FieldValue.serverTimestamp(),
         "estado": "activa",
         "creado_por_uid": ServicioAuth().usuarioActual?.uid,
         "ubicacion": GeoPoint(_ubicacionSeleccionada.latitude, _ubicacionSeleccionada.longitude),
         "respuestas": [],
-        
-        // --- NUEVOS CAMPOS AÑADIDOS ---
         "url_adjunto": urlSubida, 
-        "destinatarios": _usuariosSeleccionados, // Lista vacía = Enviar a todos
-        
-        // Información de Categoría (Para no requerir joins en lectura)
+        "destinatarios": listaFinalDestinos, // Guardamos la lista depurada
         "tipo_id": widget.categoria.id,
         "nombre": widget.categoria.nombre,
         "importancia": widget.categoria.importancia,
@@ -157,20 +182,20 @@ class _PantallaCrearAlertaState extends State<PantallaCrearAlerta> {
         "icono": iconoString, 
       };
 
-      // 4. Guardar en Base de Datos
       await FirebaseFirestore.instance.collection('emergencias').add(alerta);
 
-      // 5. Salir con éxito
+      // Enviar Notificación Selectiva
+      await ServicioNotificaciones().enviarNotificacionSelectiva(
+        uidsDestinatarios: listaFinalDestinos, 
+        titulo: "🚨 EMERGENCIA: ${widget.categoria.nombre.toUpperCase()}",
+        cuerpo: _descController.text.trim().isEmpty ? "Se requiere asistencia inmediata en el lugar." : _descController.text.trim(),
+        urlImagen: urlSubida, 
+      );
+
       if (mounted) {
-        Navigator.pop(context); // Cierra pantalla actual
-        Navigator.pop(context); // Cierra selector de tipo
-        
-        UtilidadMensajes.mostrarPersonalizado(
-          context, 
-          "¡ALERTA DE ${widget.categoria.nombre.toUpperCase()} ENVIADA!", 
-          widget.categoria.color, 
-          Icons.campaign_rounded
-        );
+        Navigator.pop(context); 
+        Navigator.pop(context); 
+        UtilidadMensajes.mostrarPersonalizado(context, "¡ALERTA ENVIADA!", widget.categoria.color, Icons.campaign_rounded);
       }
     } catch (e) {
       if (mounted) {
@@ -195,7 +220,7 @@ class _PantallaCrearAlertaState extends State<PantallaCrearAlerta> {
       ),
       body: Column(
         children: [
-          // 1. CONTENEDOR SUPERIOR (Texto + Archivo + Destinatarios)
+          // 1. PANEL SUPERIOR BLANCO
           Container(
             padding: const EdgeInsets.fromLTRB(20, 20, 20, 15),
             decoration: BoxDecoration(
@@ -223,7 +248,7 @@ class _PantallaCrearAlertaState extends State<PantallaCrearAlerta> {
                 ),
                 const SizedBox(height: 10),
 
-                // 1.2 Botón de Adjuntar Archivo
+                // 1.2 Adjuntar Archivo
                 Row(
                   children: [
                     IconButton(
@@ -236,44 +261,72 @@ class _PantallaCrearAlertaState extends State<PantallaCrearAlerta> {
                         File? archivo = await _servicioAlmacenamiento.seleccionarArchivo();
                         if (archivo != null) {
                           setState(() => _archivoAdjunto = archivo);
-                          if (mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text("Archivo adjuntado correctamente")),
-                            );
-                          }
                         }
                       },
                     ),
                     Expanded(
                       child: Text(
-                        _archivoAdjunto == null 
-                            ? "Adjuntar PDF o Imagen (Opcional)" 
-                            : "Archivo listo para enviar",
+                        _archivoAdjunto == null ? "Adjuntar Croquis/Doc (Opcional)" : "Archivo listo",
                         style: TextStyle(
                           color: _archivoAdjunto == null ? Colors.black54 : Colors.green,
                           fontWeight: FontWeight.bold,
                         ),
-                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
                   ],
                 ),
+                
+                const Divider(),
 
-                // 1.3 Botón Selector de Usuarios
-                ElevatedButton.icon(
-                  onPressed: _abrirSelectorUsuarios,
-                  icon: const Icon(Icons.people),
-                  label: Text(
-                    _usuariosSeleccionados.isEmpty 
-                        ? "Enviar a TODOS" 
-                        : "Enviar a ${_usuariosSeleccionados.length} personas"
-                  ),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.orangeAccent,
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))
-                  ),
+                // 1.3 SELECTOR DE DESTINATARIOS VISUAL (LOS RADIOS)
+                const Text("Notificar a:", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.blueGrey)),
+                Row(
+                  children: [
+                    Expanded(
+                      child: RadioListTile<bool>(
+                        contentPadding: EdgeInsets.zero,
+                        title: const Text("Todo el personal", style: TextStyle(fontSize: 14)),
+                        value: true,
+                        groupValue: _enviarATodos,
+                        activeColor: colorCat,
+                        onChanged: (bool? valor) {
+                          setState(() {
+                            _enviarATodos = valor!;
+                            _usuariosSeleccionados.clear(); // Limpiamos la lista si vuelve a general
+                          });
+                        },
+                      ),
+                    ),
+                    Expanded(
+                      child: RadioListTile<bool>(
+                        contentPadding: EdgeInsets.zero,
+                        title: const Text("Grupo selectivo", style: TextStyle(fontSize: 14)),
+                        value: false,
+                        groupValue: _enviarATodos,
+                        activeColor: colorCat,
+                        onChanged: (bool? valor) {
+                          setState(() {
+                            _enviarATodos = valor!;
+                          });
+                          // Si toca "Selectivo", abrimos automáticamente la lista para ahorrarle un toque
+                          if (!_enviarATodos) _abrirSelectorUsuarios();
+                        },
+                      ),
+                    ),
+                  ],
                 ),
+                
+                // Si está en modo selectivo, mostramos a quiénes eligió y el botón de editar
+                if (!_enviarATodos)
+                  OutlinedButton.icon(
+                    onPressed: _abrirSelectorUsuarios,
+                    icon: const Icon(Icons.edit, size: 18),
+                    label: Text(_usuariosSeleccionados.isEmpty ? "Toca para elegir bomberos" : "${_usuariosSeleccionados.length} bomberos seleccionados"),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: _usuariosSeleccionados.isEmpty ? Colors.red : colorCat,
+                      side: BorderSide(color: _usuariosSeleccionados.isEmpty ? Colors.red : colorCat),
+                    ),
+                  ),
               ],
             ),
           ),
@@ -294,7 +347,7 @@ class _PantallaCrearAlertaState extends State<PantallaCrearAlerta> {
           ),
           const SizedBox(height: 10),
 
-          // 3. MAPA EXPANDIDO
+          // 3. MAPA
           Expanded(
             child: Container(
               margin: const EdgeInsets.symmetric(horizontal: 20),

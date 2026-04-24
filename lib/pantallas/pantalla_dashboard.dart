@@ -8,6 +8,7 @@ import 'pantalla_login.dart';
 import 'pantalla_seleccion_tipo.dart';
 import '../widgets/menu_lateral.dart';
 import '../widgets/vista_lista_alertas.dart';
+import '../widgets/widget_eventos_proximos.dart'; // <--- 1. IMPORTAMOS EL WIDGET
 
 class PantallaDashboard extends StatefulWidget {
   final String rolUsuario;
@@ -65,7 +66,6 @@ class _PantallaDashboardState extends State<PantallaDashboard> {
 
   @override
   Widget build(BuildContext context) {
-
     return Scaffold(
       backgroundColor: TemaApp.fondoClaro,
       appBar: AppBar(
@@ -115,13 +115,24 @@ class _PantallaDashboardState extends State<PantallaDashboard> {
               elevation: 4,
             )
           : null,
-      body: RefreshIndicator(
-        onRefresh: _refrescarAlertas,
-        color: TemaApp.rojoBombero,
-        child: VistaListaAlertas(
-          servicioEmergencias: _servicioEmergencias,
-          rolUsuario: widget.rolUsuario,
-        ),
+      
+      // --- 2. MODIFICAMOS EL BODY ---
+      body: Column(
+        children: [
+          // A. Panel Superior: Los Eventos Agendados
+
+          // B. Panel Inferior: La lista de Alertas Activas
+          Expanded(
+            child: RefreshIndicator(
+              onRefresh: _refrescarAlertas,
+              color: TemaApp.rojoBombero,
+              child: VistaListaAlertas(
+                servicioEmergencias: _servicioEmergencias,
+                rolUsuario: widget.rolUsuario,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

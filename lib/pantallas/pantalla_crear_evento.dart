@@ -5,7 +5,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../servicios/servicio_auth.dart';
 import '../servicios/servicio_almacenamiento.dart';
 import '../config/tema_app.dart';
-
+import '../servicios/servicio_notificaciones.dart'; // <--- Agrega esta línea
 class PantallaCrearEvento extends StatefulWidget {
   const PantallaCrearEvento({super.key});
 
@@ -100,8 +100,13 @@ class _PantallaCrearEventoState extends State<PantallaCrearEvento> {
 
       // 4. Guardar en la colección 'eventos'
       await FirebaseFirestore.instance.collection('eventos').add(eventoData);
-
-      if (mounted) {
+await ServicioNotificaciones().enviarNotificacionSelectiva(
+        uidsDestinatarios: [], // Al enviarlo vacío, nuestro servicio busca a todos
+        titulo: "NUEVO EVENTO: $_tipoEvento",
+        cuerpo: _descController.text.trim(),
+        urlImagen: urlSubida, 
+      );
+if (mounted) {
         Navigator.pop(context);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
