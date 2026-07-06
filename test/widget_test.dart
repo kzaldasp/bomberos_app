@@ -1,30 +1,26 @@
-// This is a basic Flutter widget test.
-//
-// To perform an interaction with a widget in your test, use the WidgetTester
-// utility in the flutter_test package. For example, you can send tap and scroll
-// gestures. You can also use WidgetTester to find child widgets in the widget
-// tree, read text, and verify that the values of widget properties are correct.
-
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:bomberos_app/main.dart';
+import 'package:bomberos_app/config/utilidad_iconos.dart';
+import 'package:bomberos_app/config/tema_app.dart';
 
 void main() {
-  testWidgets('Counter increments smoke test', (WidgetTester tester) async {
-    // Build our app and trigger a frame.
-    await tester.pumpWidget(const MiApp());
+  group('UtilidadIconos', () {
+    test('traduce nombres conocidos a su icono', () {
+      expect(UtilidadIconos.obtenerIcono('local_fire_department'), Icons.local_fire_department);
+      expect(UtilidadIconos.obtenerIcono('medical_services'), Icons.medical_services);
+    });
 
-    // Verify that our counter starts at 0.
-    expect(find.text('0'), findsOneWidget);
-    expect(find.text('1'), findsNothing);
+    test('devuelve icono genérico para nombres desconocidos o nulos', () {
+      expect(UtilidadIconos.obtenerIcono('no_existe'), Icons.help_outline);
+      expect(UtilidadIconos.obtenerIcono(null), Icons.help_outline);
+    });
+  });
 
-    // Tap the '+' icon and trigger a frame.
-    await tester.tap(find.byIcon(Icons.add));
-    await tester.pump();
-
-    // Verify that our counter has incremented.
-    expect(find.text('0'), findsNothing);
-    expect(find.text('1'), findsOneWidget);
+  test('TemaApp genera un tema Material 3 con los colores institucionales', () {
+    final tema = TemaApp.obtenerTema();
+    expect(tema.useMaterial3, isTrue);
+    expect(tema.colorScheme.primary, TemaApp.azulInstitucional);
+    expect(tema.colorScheme.secondary, TemaApp.rojoBombero);
   });
 }

@@ -8,7 +8,6 @@ import 'pantalla_login.dart';
 import 'pantalla_seleccion_tipo.dart';
 import '../widgets/menu_lateral.dart';
 import '../widgets/vista_lista_alertas.dart';
-import '../widgets/widget_eventos_proximos.dart'; // <--- 1. IMPORTAMOS EL WIDGET
 
 class PantallaDashboard extends StatefulWidget {
   final String rolUsuario;
@@ -39,7 +38,7 @@ class _PantallaDashboardState extends State<PantallaDashboard> {
         if (doc.exists && mounted) {
           setState(() {
             _nombreUsuario = doc.data()?['nombre'] ?? "Usuario";
-            _rangoUsuario = doc.data()?['rango'] ?? (widget.rolUsuario == 'admin' ? "Comandancia" : "Tropa");
+            _rangoUsuario = doc.data()?['rango'] ?? (widget.rolUsuario == Roles.admin ? "Comandancia" : "Tropa");
           });
         }
       } catch (e) {
@@ -78,7 +77,7 @@ class _PantallaDashboardState extends State<PantallaDashboard> {
             ),
             Text(
               "Cuerpo de Bomberos Otavalo",
-              style: TextStyle(fontSize: 10, color: Colors.white.withOpacity(0.8), fontWeight: FontWeight.w400),
+              style: TextStyle(fontSize: 10, color: Colors.white.withValues(alpha: 0.8), fontWeight: FontWeight.w400),
             ),
           ],
         ),
@@ -96,9 +95,10 @@ class _PantallaDashboardState extends State<PantallaDashboard> {
       drawer: MenuLateral(
         nombreUsuario: _nombreUsuario,
         rangoUsuario: _rangoUsuario,
+        rolUsuario: widget.rolUsuario,
         onCerrarSesion: _cerrarSesion,
       ),
-      floatingActionButton: widget.rolUsuario == 'admin'
+      floatingActionButton: widget.rolUsuario == Roles.admin
           ? FloatingActionButton.extended(
               backgroundColor: TemaApp.rojoBombero,
               onPressed: () {
@@ -116,23 +116,13 @@ class _PantallaDashboardState extends State<PantallaDashboard> {
             )
           : null,
       
-      // --- 2. MODIFICAMOS EL BODY ---
-      body: Column(
-        children: [
-          // A. Panel Superior: Los Eventos Agendados
-
-          // B. Panel Inferior: La lista de Alertas Activas
-          Expanded(
-            child: RefreshIndicator(
-              onRefresh: _refrescarAlertas,
-              color: TemaApp.rojoBombero,
-              child: VistaListaAlertas(
-                servicioEmergencias: _servicioEmergencias,
-                rolUsuario: widget.rolUsuario,
-              ),
-            ),
-          ),
-        ],
+      body: RefreshIndicator(
+        onRefresh: _refrescarAlertas,
+        color: TemaApp.rojoBombero,
+        child: VistaListaAlertas(
+          servicioEmergencias: _servicioEmergencias,
+          rolUsuario: widget.rolUsuario,
+        ),
       ),
     );
   }

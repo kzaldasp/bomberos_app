@@ -2,6 +2,11 @@
     <uses-permission android:name="android.permission.INTERNET"/>
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
+    <!-- Notificaciones push (Android 13+) -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
+    <!-- Rastreo del trayecto con la app minimizada (servicio en primer plano) -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION"/>
     <queries>
         <intent>
             <action android:name="android.intent.action.VIEW" />
@@ -13,7 +18,7 @@
         </intent>
     </queries>
     <application
-        android:label="bomberos_app"
+        android:label="Bomberos Otavalo"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity

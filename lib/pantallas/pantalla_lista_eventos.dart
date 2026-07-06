@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../config/tema_app.dart';
+import '../config/utilidad_formato.dart';
 
 class PantallaListaEventos extends StatefulWidget {
   const PantallaListaEventos({super.key});
@@ -12,6 +13,11 @@ class PantallaListaEventos extends StatefulWidget {
 
 class _PantallaListaEventosState extends State<PantallaListaEventos> {
   DateTime _fechaFiltro = DateTime.now();
+
+  bool _esHoy(DateTime fecha) {
+    final hoy = DateTime.now();
+    return fecha.year == hoy.year && fecha.month == hoy.month && fecha.day == hoy.day;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -51,10 +57,10 @@ class _PantallaListaEventosState extends State<PantallaListaEventos> {
                 const Icon(Icons.filter_alt, color: Colors.grey, size: 18),
                 const SizedBox(width: 10),
                 Text(
-                  "Mostrando: ${_fechaFiltro.day}/${_fechaFiltro.month}/${_fechaFiltro.year}",
+                  "Mostrando: ${UtilidadFormato.fecha(_fechaFiltro)}",
                   style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                 ),
-                if (_fechaFiltro.day != DateTime.now().day)
+                if (!_esHoy(_fechaFiltro))
                   TextButton(
                     onPressed: () => setState(() => _fechaFiltro = DateTime.now()),
                     child: const Text("Ver Hoy"),
@@ -93,11 +99,11 @@ class _PantallaListaEventosState extends State<PantallaListaEventos> {
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
                       child: ListTile(
                         leading: CircleAvatar(
-                          backgroundColor: TemaApp.azulInstitucional.withOpacity(0.1),
+                          backgroundColor: TemaApp.azulInstitucional.withValues(alpha: 0.1),
                           child: const Icon(Icons.event_note, color: TemaApp.azulInstitucional),
                         ),
-                        title: Text(ev['tipo_evento'], style: const TextStyle(fontWeight: FontWeight.bold)),
-                        subtitle: Text("${ev['descripcion']}\n⏰ ${hora.hour}:${hora.minute.toString().padLeft(2,'0')}"),
+                        title: Text(ev['tipo_evento'] ?? 'Evento', style: const TextStyle(fontWeight: FontWeight.bold)),
+                        subtitle: Text("${ev['descripcion'] ?? ''}\n⏰ ${UtilidadFormato.hora(hora)}"),
                         trailing: ev['url_adjunto'] != null 
                           ? IconButton(
                               icon: const Icon(Icons.file_present, color: Colors.blue),

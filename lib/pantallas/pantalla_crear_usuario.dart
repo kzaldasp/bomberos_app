@@ -17,7 +17,7 @@ class _PantallaCrearUsuarioState extends State<PantallaCrearUsuario> {
   final _emailCtrl = TextEditingController();
   final _passCtrl = TextEditingController();
 
-  String _rolSeleccionado = 'bombero';
+  String _rolSeleccionado = Roles.bombero;
   String _rangoSeleccionado = 'Bombero Operativo';
   
   bool _guardando = false;
@@ -49,15 +49,14 @@ class _PantallaCrearUsuarioState extends State<PantallaCrearUsuario> {
       rango: _rangoSeleccionado,
     );
 
+    if (!mounted) return;
     setState(() => _guardando = false);
 
     if (error == null) {
-      if (mounted) {
-        UtilidadMensajes.mostrarExito(context, "¡Personal registrado exitosamente!");
-        Navigator.pop(context); // Regresa a la pantalla anterior
-      }
+      UtilidadMensajes.mostrarExito(context, "¡Personal registrado exitosamente!");
+      Navigator.pop(context); // Regresa a la pantalla anterior
     } else {
-      if (mounted) UtilidadMensajes.mostrarError(context, error);
+      UtilidadMensajes.mostrarError(context, error);
     }
   }
 
@@ -100,7 +99,7 @@ class _PantallaCrearUsuarioState extends State<PantallaCrearUsuario> {
                   Expanded(
                     flex: 6,
                     child: DropdownButtonFormField<String>(
-                      value: _rangoSeleccionado,
+                      initialValue: _rangoSeleccionado,
                       decoration: InputDecoration(
                         labelText: "Grado / Rango",
                         border: OutlineInputBorder(borderRadius: BorderRadius.circular(15)),
@@ -114,15 +113,15 @@ class _PantallaCrearUsuarioState extends State<PantallaCrearUsuario> {
                   Expanded(
                     flex: 4,
                     child: DropdownButtonFormField<String>(
-                      value: _rolSeleccionado,
+                      initialValue: _rolSeleccionado,
                       decoration: InputDecoration(
                         labelText: "Permisos",
                         border: OutlineInputBorder(borderRadius: BorderRadius.circular(15)),
                         filled: true, fillColor: Colors.white,
                       ),
                       items: const [
-                        DropdownMenuItem(value: 'bombero', child: Text("Tropa")),
-                        DropdownMenuItem(value: 'admin', child: Text("Admin", style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold))),
+                        DropdownMenuItem(value: Roles.bombero, child: Text("Tropa")),
+                        DropdownMenuItem(value: Roles.admin, child: Text("Admin", style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold))),
                       ],
                       onChanged: (val) => setState(() => _rolSeleccionado = val!),
                     ),

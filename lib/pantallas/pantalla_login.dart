@@ -15,30 +15,39 @@ class _PantallaLoginState extends State<PantallaLogin> {
   final _controladorClave = TextEditingController();
   final _servicioAuth = ServicioAuth();
   bool _estaCargando = false;
+  bool _ocultarClave = true;
 
   void _procesarIngreso() async {
+    final correo = _controladorCorreo.text.trim();
+    final clave = _controladorClave.text.trim();
+
+    if (correo.isEmpty || clave.isEmpty) {
+      UtilidadMensajes.mostrarError(context, "Ingresa tu correo y contraseña.");
+      return;
+    }
+
     setState(() => _estaCargando = true);
 
-    String? resultado = await _servicioAuth.iniciarSesion(
-      _controladorCorreo.text.trim(),
-      _controladorClave.text.trim(),
-    );
+    String? resultado = await _servicioAuth.iniciarSesion(correo, clave);
 
+    if (!mounted) return;
     setState(() => _estaCargando = false);
 
-    if (resultado == 'admin' || resultado == 'bombero') {
-      if (mounted) {
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (context) => PantallaDashboard(rolUsuario: resultado!)),
-        );
-      }
+    if (resultado == Roles.admin || resultado == Roles.bombero) {
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (context) => PantallaDashboard(rolUsuario: resultado!)),
+      );
     } else {
-      if (mounted) {
-        UtilidadMensajes.mostrarError(context, resultado ?? "Error desconocido");
-
-      }
+      UtilidadMensajes.mostrarError(context, resultado ?? "Error desconocido");
     }
+  }
+
+  @override
+  void dispose() {
+    _controladorCorreo.dispose();
+    _controladorClave.dispose();
+    super.dispose();
   }
 
   @override
@@ -99,6 +108,8 @@ class _PantallaLoginState extends State<PantallaLogin> {
                       TextField(
                         controller: _controladorCorreo,
                         keyboardType: TextInputType.emailAddress,
+                        textInputAction: TextInputAction.next,
+                        autofillHints: const [AutofillHints.email],
                         style: const TextStyle(fontWeight: FontWeight.w500),
                         decoration: InputDecoration(
                           hintText: "Correo electrónico",
@@ -120,13 +131,22 @@ class _PantallaLoginState extends State<PantallaLogin> {
                       // Contraseña
                       TextField(
                         controller: _controladorClave,
-                        obscureText: true,
+                        obscureText: _ocultarClave,
+                        textInputAction: TextInputAction.done,
+                        onSubmitted: (_) => _estaCargando ? null : _procesarIngreso(),
                         style: const TextStyle(fontWeight: FontWeight.w500),
                         decoration: InputDecoration(
                           hintText: "Contraseña",
                           hintStyle: TextStyle(color: Colors.grey.shade400),
                           prefixIcon: const Icon(Icons.lock_outline),
                           prefixIconColor: Colors.grey.shade500,
+                          suffixIcon: IconButton(
+                            icon: Icon(
+                              _ocultarClave ? Icons.visibility_outlined : Icons.visibility_off_outlined,
+                              color: Colors.grey.shade500,
+                            ),
+                            onPressed: () => setState(() => _ocultarClave = !_ocultarClave),
+                          ),
                           filled: true,
                           fillColor: TemaApp.grisInput,
                           border: OutlineInputBorder(
@@ -149,7 +169,7 @@ class _PantallaLoginState extends State<PantallaLogin> {
                             backgroundColor: TemaApp.rojoBombero,
                             foregroundColor: Colors.white,
                             elevation: 5,
-                            shadowColor: TemaApp.rojoBombero.withOpacity(0.4), // Glow rojo
+                            shadowColor: TemaApp.rojoBombero.withValues(alpha: 0.4), // Glow rojo
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(16), // Tu radio del tema
                             ),

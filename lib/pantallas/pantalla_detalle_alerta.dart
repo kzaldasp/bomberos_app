@@ -1,15 +1,16 @@
-import 'dart:async'; 
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:url_launcher/url_launcher.dart'; 
+import 'package:url_launcher/url_launcher.dart';
 import 'package:geolocator/geolocator.dart';
 
 import '../modelos/emergencia_modelo.dart';
 import '../servicios/servicio_auth.dart';
+import '../servicios/servicio_rastreo.dart';
 import '../config/tema_app.dart';
-import '../config/utilidad_mensajes.dart'; 
+import '../config/utilidad_formato.dart';
+import '../config/utilidad_mensajes.dart';
 
 class PantallaDetalleAlerta extends StatefulWidget {
   final EmergenciaModelo alerta; 
@@ -24,22 +25,19 @@ class PantallaDetalleAlerta extends StatefulWidget {
 class _PantallaDetalleAlertaState extends State<PantallaDetalleAlerta> {
   bool _enviandoRespuesta = false;
   bool _yaRespondio = false;
-  
-  StreamSubscription<Position>? _rastreoGps;
-  
-  // --- NUEVO: Variable para saber de qué bombero estamos dibujando la ruta ---
+
+  // UID del bombero del que se está dibujando la ruta en el mapa
   String? _bomberoRutaActiva;
+
+  final MapController _mapController = MapController();
+
+  // El rastreo GPS vive en ServicioRastreo (singleton): sigue activo aunque
+  // el bombero salga de esta pantalla, y se apaga solo al finalizar el caso.
 
   @override
   void initState() {
     super.initState();
     _verificarSiYaRespondio();
-  }
-
-  @override
-  void dispose() {
-    _rastreoGps?.cancel();
-    super.dispose();
   }
 
   void _verificarSiYaRespondio() {
@@ -67,22 +65,21 @@ class _PantallaDetalleAlertaState extends State<PantallaDetalleAlerta> {
     }
   }
 
-  // Ahora esta función abre la ruta en Google Maps usando Origin y Destination
-  void _verUbicacionBombero(Map<String, dynamic> respuesta) async {
-    if (respuesta['ubicacion_inicial'] == null || widget.alerta.ubicacion == null) {
-      UtilidadMensajes.mostrarError(context,"Faltan coordenadas");
+  // Abre la ruta en Google Maps desde la posición del bombero hasta la emergencia
+  void _verUbicacionBombero(LatLng? posicionBombero) async {
+    if (posicionBombero == null || widget.alerta.ubicacion == null) {
+      UtilidadMensajes.mostrarError(context, "Faltan coordenadas");
       return;
     }
-    
-    final GeoPoint gpOrigen = respuesta['ubicacion_inicial'];
+
     final latDestino = widget.alerta.ubicacion!.latitude;
     final lngDestino = widget.alerta.ubicacion!.longitude;
-    
-    // Abre Google Maps en modo navegación desde el bombero hasta la emergencia
-    final Uri url = Uri.parse("https://www.google.com/maps/dir/?api=1&origin=${gpOrigen.latitude},${gpOrigen.longitude}&destination=$latDestino,$lngDestino");
+
+    final Uri url = Uri.parse(
+        "https://www.google.com/maps/dir/?api=1&origin=${posicionBombero.latitude},${posicionBombero.longitude}&destination=$latDestino,$lngDestino");
 
     if (!await launchUrl(url, mode: LaunchMode.externalApplication)) {
-      if (mounted) UtilidadMensajes.mostrarError(context,"Error al abrir Google Maps");
+      if (mounted) UtilidadMensajes.mostrarError(context, "Error al abrir Google Maps");
     }
   }
 
@@ -118,37 +115,9 @@ class _PantallaDetalleAlertaState extends State<PantallaDetalleAlerta> {
     );
   }
 
-  void _iniciarRastreoGps() {
-    const LocationSettings ajustesGps = LocationSettings(
-      accuracy: LocationAccuracy.high,
-      distanceFilter: 15, 
-    );
-
-    _rastreoGps = Geolocator.getPositionStream(locationSettings: ajustesGps).listen((Position position) async {
-      try {
-        final docRef = FirebaseFirestore.instance.collection('emergencias').doc(widget.alerta.id);
-        final doc = await docRef.get();
-        if (!doc.exists) return;
-
-        List<dynamic> respuestas = doc.data()?['respuestas'] ?? [];
-        final miUid = ServicioAuth().usuarioActual?.uid;
-
-        for (var i = 0; i < respuestas.length; i++) {
-          if (respuestas[i]['bombero_uid'] == miUid) {
-            respuestas[i]['ubicacion_inicial'] = GeoPoint(position.latitude, position.longitude);
-            break;
-          }
-        }
-        await docRef.update({'respuestas': respuestas});
-      } catch (e) {
-        print("Error en tracking GPS: $e");
-      }
-    });
-  }
-
   void _confirmarAsistencia() async {
     final int? tiempoEstimado = await _mostrarDialogoETA();
-    if (tiempoEstimado == null) return; 
+    if (tiempoEstimado == null) return;
 
     setState(() => _enviandoRespuesta = true);
 
@@ -156,38 +125,81 @@ class _PantallaDetalleAlertaState extends State<PantallaDetalleAlerta> {
       LocationPermission permission = await Geolocator.checkPermission();
       if (permission == LocationPermission.denied) {
         permission = await Geolocator.requestPermission();
-        if (permission == LocationPermission.denied) throw 'Se requiere ubicación';
+        if (permission == LocationPermission.denied) throw 'Se requiere el permiso de ubicación';
       }
-      
+      if (permission == LocationPermission.deniedForever) {
+        throw 'El permiso de ubicación está bloqueado. Actívalo en Ajustes del teléfono.';
+      }
+
       Position posicion = await Geolocator.getCurrentPosition();
       final uid = ServicioAuth().usuarioActual?.uid;
+      if (uid == null) throw 'Sesión no válida';
+
       final docUsuario = await FirebaseFirestore.instance.collection('usuarios').doc(uid).get();
-      
-      Map<String, dynamic>? userData = docUsuario.data();
-      String nombreReal = userData != null && userData.containsKey('nombre') ? userData['nombre'] : "Bombero";
+      final String nombreReal = docUsuario.data()?['nombre'] ?? "Bombero";
 
       final respuesta = {
         "bombero_uid": uid,
         "nombre": nombreReal,
         "hora": Timestamp.now(),
         "ubicacion_inicial": GeoPoint(posicion.latitude, posicion.longitude),
-        "eta_minutos": tiempoEstimado, 
+        "eta_minutos": tiempoEstimado,
       };
 
       await FirebaseFirestore.instance.collection('emergencias').doc(widget.alerta.id).update({
         "respuestas": FieldValue.arrayUnion([respuesta])
       });
 
+      // Arranca el rastreo del trayecto (sigue aunque cierre esta pantalla)
+      await ServicioRastreo().iniciar(
+        emergenciaId: widget.alerta.id,
+        bomberoUid: uid,
+        nombreBombero: nombreReal,
+        posicionInicial: posicion,
+      );
+
       if (mounted) {
-        UtilidadMensajes.mostrarExito(context, "GPS Activado. Llegada en ~$tiempoEstimado min.");
+        UtilidadMensajes.mostrarExito(context, "GPS activado. Llegada en ~$tiempoEstimado min.");
         setState(() { _yaRespondio = true; _enviandoRespuesta = false; });
-        _iniciarRastreoGps();
       }
     } catch (e) {
       if (mounted) {
         setState(() => _enviandoRespuesta = false);
-        UtilidadMensajes.mostrarError(context,"Error: $e");
+        UtilidadMensajes.mostrarError(context, "Error: $e");
       }
+    }
+  }
+
+  void _dejarDeCompartir() async {
+    await ServicioRastreo().detener();
+    if (mounted) {
+      setState(() {});
+      UtilidadMensajes.mostrarExito(context, "Dejaste de compartir tu ubicación.");
+    }
+  }
+
+  /// Retoma el rastreo si el bombero cerró la app a mitad del trayecto.
+  void _reanudarRastreo() async {
+    try {
+      final uid = ServicioAuth().usuarioActual?.uid;
+      if (uid == null) return;
+
+      final posicion = await Geolocator.getCurrentPosition();
+      final docUsuario = await FirebaseFirestore.instance.collection('usuarios').doc(uid).get();
+
+      await ServicioRastreo().iniciar(
+        emergenciaId: widget.alerta.id,
+        bomberoUid: uid,
+        nombreBombero: docUsuario.data()?['nombre'] ?? 'Bombero',
+        posicionInicial: posicion,
+      );
+
+      if (mounted) {
+        setState(() {});
+        UtilidadMensajes.mostrarExito(context, "Rastreo GPS reanudado.");
+      }
+    } catch (e) {
+      if (mounted) UtilidadMensajes.mostrarError(context, "No se pudo reanudar el GPS: $e");
     }
   }
 
@@ -211,11 +223,12 @@ class _PantallaDetalleAlertaState extends State<PantallaDetalleAlerta> {
     if (confirmar == true) {
       setState(() => _enviandoRespuesta = true);
       try {
+        // Al pasar a 'finalizada', el ServicioRastreo de cada bombero
+        // detecta el cambio y apaga su GPS automáticamente.
         await FirebaseFirestore.instance.collection('emergencias').doc(widget.alerta.id).update({'estado': 'finalizada'});
-        _rastreoGps?.cancel(); 
-        if (mounted) Navigator.pop(context); 
+        if (mounted) Navigator.pop(context);
       } catch (e) {
-        setState(() => _enviandoRespuesta = false);
+        if (mounted) setState(() => _enviandoRespuesta = false);
       }
     }
   }
@@ -248,21 +261,33 @@ class _PantallaDetalleAlertaState extends State<PantallaDetalleAlerta> {
           final bool esFinalizada = data['estado'] == 'finalizada';
           final Color colorTema = esFinalizada ? Colors.grey : widget.alerta.colorCategoria;
 
-          // Extraemos las coordenadas del bombero seleccionado para trazar la línea
-          List<LatLng> puntosRuta = [];
-          if (_bomberoRutaActiva != null) {
-            try {
-              final bombero = respuestasEnVivo.firstWhere((r) => r['bombero_uid'] == _bomberoRutaActiva);
-              if (bombero['ubicacion_inicial'] != null) {
-                final gp = bombero['ubicacion_inicial'] as GeoPoint;
-                puntosRuta = [LatLng(gp.latitude, gp.longitude), puntoMapa];
-              }
-            } catch (e) {
-              // Bombero no encontrado en la lista
-            }
-          }
+          // Escuchamos los trayectos en vivo (emergencias/{id}/trayectos/{uid})
+          return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+            stream: FirebaseFirestore.instance
+                .collection('emergencias')
+                .doc(widget.alerta.id)
+                .collection('trayectos')
+                .snapshots(),
+            builder: (context, snapTrayectos) {
+              // Recorrido completo y última posición conocida de cada bombero
+              final Map<String, List<LatLng>> rutasPorBombero = {};
+              final Map<String, LatLng> posicionActual = {};
 
-          return Column(
+              for (final doc in snapTrayectos.data?.docs ?? <QueryDocumentSnapshot<Map<String, dynamic>>>[]) {
+                final puntos = (doc.data()['puntos'] as List<dynamic>? ?? [])
+                    .map((p) => LatLng((p['lat'] as num).toDouble(), (p['lng'] as num).toDouble()))
+                    .toList();
+                if (puntos.isNotEmpty) {
+                  rutasPorBombero[doc.id] = puntos;
+                  posicionActual[doc.id] = puntos.last;
+                }
+              }
+
+              // Ruta del bombero seleccionado para dibujar en el mapa
+              final List<LatLng> puntosRuta =
+                  _bomberoRutaActiva != null ? (rutasPorBombero[_bomberoRutaActiva] ?? []) : [];
+
+              return Column(
             children: [
               // --- MAPA ---
               Expanded(
@@ -270,6 +295,7 @@ class _PantallaDetalleAlertaState extends State<PantallaDetalleAlerta> {
                 child: Stack(
                   children: [
                     FlutterMap(
+                      mapController: _mapController,
                       options: MapOptions(initialCenter: puntoMapa, initialZoom: 16.0),
                       children: [
                         TileLayer(urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png', userAgentPackageName: 'com.bomberos.app'),
@@ -294,17 +320,22 @@ class _PantallaDetalleAlertaState extends State<PantallaDetalleAlerta> {
                               child: Stack(
                                 alignment: Alignment.center,
                                 children: [
-                                  Container(width: 80, height: 80, decoration: BoxDecoration(color: colorTema.withOpacity(0.3), shape: BoxShape.circle, border: Border.all(color: colorTema, width: 2))),
+                                  Container(width: 80, height: 80, decoration: BoxDecoration(color: colorTema.withValues(alpha: 0.3), shape: BoxShape.circle, border: Border.all(color: colorTema, width: 2))),
                                   Container(width: 14, height: 14, decoration: BoxDecoration(color: Colors.white, shape: BoxShape.circle, border: Border.all(color: colorTema, width: 4))),
                                   Positioned(top: 10, child: Icon(widget.alerta.iconoCategoria, color: colorTema, size: 24))
                                 ],
                               ),
                             ),
-                            ...respuestasEnVivo.map((r) {
-                              if (r['ubicacion_inicial'] == null) return const Marker(point: LatLng(0,0), child: SizedBox());
-                              final gp = r['ubicacion_inicial'] as GeoPoint;
+                            ...respuestasEnVivo.map<Marker?>((r) {
+                              // Última posición del trayecto; si aún no hay, el punto de partida
+                              LatLng? pos = posicionActual[r['bombero_uid']];
+                              if (pos == null && r['ubicacion_inicial'] != null) {
+                                final gp = r['ubicacion_inicial'] as GeoPoint;
+                                pos = LatLng(gp.latitude, gp.longitude);
+                              }
+                              if (pos == null) return null;
                               return Marker(
-                                point: LatLng(gp.latitude, gp.longitude),
+                                point: pos,
                                 width: 60, height: 60,
                                 child: Column(
                                   children: [
@@ -317,7 +348,7 @@ class _PantallaDetalleAlertaState extends State<PantallaDetalleAlerta> {
                                   ],
                                 ),
                               );
-                            }).toList(),
+                            }).whereType<Marker>(),
                           ],
                         ),
                       ],
@@ -359,7 +390,7 @@ class _PantallaDetalleAlertaState extends State<PantallaDetalleAlerta> {
                               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                               decoration: BoxDecoration(color: Colors.grey.shade100, borderRadius: BorderRadius.circular(10)),
                               child: Text(
-                                "${widget.alerta.fechaHora.toDate().hour}:${widget.alerta.fechaHora.toDate().minute.toString().padLeft(2,'0')}",
+                                UtilidadFormato.horaInteligente(widget.alerta.fechaHora.toDate()),
                                 style: TextStyle(color: Colors.grey.shade600, fontWeight: FontWeight.bold),
                               ),
                             )
@@ -408,7 +439,7 @@ class _PantallaDetalleAlertaState extends State<PantallaDetalleAlerta> {
                                 itemBuilder: (ctx, i) {
                                   final r = respuestasEnVivo[i];
                                   final Timestamp? ts = r['hora'];
-                                  final hora = ts != null ? "${ts.toDate().hour}:${ts.toDate().minute.toString().padLeft(2,'0')}" : "--:--";
+                                  final hora = ts != null ? UtilidadFormato.hora(ts.toDate()) : "--:--";
                                   final uidBombero = r['bombero_uid'];
                                   
                                   String infoLlegada = "Salida: $hora";
@@ -419,34 +450,47 @@ class _PantallaDetalleAlertaState extends State<PantallaDetalleAlerta> {
                                   return ListTile(
                                     dense: true,
                                     contentPadding: EdgeInsets.zero,
-                                    leading: CircleAvatar(backgroundColor: colorTema.withOpacity(0.1), radius: 18, child: Icon(Icons.person, size: 18, color: colorTema)),
+                                    leading: CircleAvatar(backgroundColor: colorTema.withValues(alpha: 0.1), radius: 18, child: Icon(Icons.person, size: 18, color: colorTema)),
                                     title: Text(r['nombre'] ?? 'Bombero', style: const TextStyle(fontWeight: FontWeight.bold)),
                                     subtitle: Text(infoLlegada, style: TextStyle(color: Colors.grey.shade500)),
                                     
-                                    // --- NUEVO: DOS BOTONES PARA EL ADMIN ---
-                                    trailing: widget.rolUsuario == 'admin' 
+                                    // --- DOS BOTONES PARA EL ADMIN ---
+                                    trailing: widget.rolUsuario == Roles.admin
                                         ? Row(
                                             mainAxisSize: MainAxisSize.min,
                                             children: [
                                               // Botón de trazar línea en el mapa interno
                                               IconButton(
-                                                icon: Icon(rutaActiva ? Icons.route : Icons.route_outlined, color: rutaActiva ? Colors.orange : Colors.grey), 
+                                                icon: Icon(rutaActiva ? Icons.route : Icons.route_outlined, color: rutaActiva ? Colors.orange : Colors.grey),
                                                 tooltip: "Ver ruta en mapa",
                                                 onPressed: () {
                                                   setState(() {
-                                                    if (rutaActiva) {
-                                                      _bomberoRutaActiva = null; // Apaga la línea si ya estaba activa
-                                                    } else {
-                                                      _bomberoRutaActiva = uidBombero; // Dibuja la línea para este bombero
-                                                    }
+                                                    _bomberoRutaActiva = rutaActiva ? null : uidBombero;
                                                   });
+                                                  // Ajustamos el mapa para que se vea todo el recorrido
+                                                  final ruta = rutasPorBombero[uidBombero];
+                                                  if (!rutaActiva && ruta != null && ruta.isNotEmpty) {
+                                                    _mapController.fitCamera(
+                                                      CameraFit.coordinates(
+                                                        coordinates: [...ruta, puntoMapa],
+                                                        padding: const EdgeInsets.all(60),
+                                                      ),
+                                                    );
+                                                  }
                                                 }
                                               ),
                                               // Botón de abrir en Google Maps externo
                                               IconButton(
-                                                icon: const Icon(Icons.open_in_new, color: Colors.blue), 
+                                                icon: const Icon(Icons.open_in_new, color: Colors.blue),
                                                 tooltip: "Abrir en Google Maps",
-                                                onPressed: () => _verUbicacionBombero(r as Map<String, dynamic>)
+                                                onPressed: () {
+                                                  LatLng? pos = posicionActual[uidBombero];
+                                                  if (pos == null && r['ubicacion_inicial'] != null) {
+                                                    final gp = r['ubicacion_inicial'] as GeoPoint;
+                                                    pos = LatLng(gp.latitude, gp.longitude);
+                                                  }
+                                                  _verUbicacionBombero(pos);
+                                                },
                                               ),
                                             ],
                                           )
@@ -464,7 +508,7 @@ class _PantallaDetalleAlertaState extends State<PantallaDetalleAlerta> {
                             decoration: BoxDecoration(color: Colors.grey.shade200, borderRadius: BorderRadius.circular(12)),
                             child: const Row(mainAxisAlignment: MainAxisAlignment.center, children: [Icon(Icons.lock, color: Colors.grey), SizedBox(width: 10), Text("CASO CERRADO", style: TextStyle(color: Colors.grey, fontWeight: FontWeight.bold, letterSpacing: 1.5))]),
                            )
-                        else if (widget.rolUsuario == 'admin')
+                        else if (widget.rolUsuario == Roles.admin)
                           SizedBox(
                             width: double.infinity,
                             height: 55,
@@ -475,16 +519,34 @@ class _PantallaDetalleAlertaState extends State<PantallaDetalleAlerta> {
                               label: const Text("FINALIZAR OPERATIVO", style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
                             ),
                           )
-                        else if (widget.rolUsuario == 'bombero')
-                          SizedBox(
-                            width: double.infinity,
-                            height: 55,
-                            child: ElevatedButton.icon(
-                              style: ElevatedButton.styleFrom(backgroundColor: _yaRespondio ? Colors.green : colorTema, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15))),
-                              onPressed: (_enviandoRespuesta || _yaRespondio) ? null : _confirmarAsistencia,
-                              icon: _enviandoRespuesta ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)) : Icon(_yaRespondio ? Icons.check : Icons.directions_run, color: Colors.white),
-                              label: Text(_yaRespondio ? "ASISTENCIA CONFIRMADA" : "VOY EN CAMINO", style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
-                            ),
+                        else if (widget.rolUsuario == Roles.bombero)
+                          Column(
+                            children: [
+                              SizedBox(
+                                width: double.infinity,
+                                height: 55,
+                                child: ElevatedButton.icon(
+                                  style: ElevatedButton.styleFrom(backgroundColor: _yaRespondio ? Colors.green : colorTema, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15))),
+                                  onPressed: (_enviandoRespuesta || _yaRespondio) ? null : _confirmarAsistencia,
+                                  icon: _enviandoRespuesta ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)) : Icon(_yaRespondio ? Icons.check : Icons.directions_run, color: Colors.white),
+                                  label: Text(_yaRespondio ? "ASISTENCIA CONFIRMADA" : "VOY EN CAMINO", style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
+                                ),
+                              ),
+                              // Si está compartiendo: botón para detener.
+                              // Si respondió pero el GPS se apagó (cerró la app): botón para reanudar.
+                              if (_yaRespondio && ServicioRastreo().emergenciaActiva == widget.alerta.id)
+                                TextButton.icon(
+                                  onPressed: _dejarDeCompartir,
+                                  icon: const Icon(Icons.location_off_outlined, size: 18, color: Colors.grey),
+                                  label: const Text("Dejar de compartir mi ubicación", style: TextStyle(color: Colors.grey, fontSize: 13)),
+                                )
+                              else if (_yaRespondio)
+                                TextButton.icon(
+                                  onPressed: _reanudarRastreo,
+                                  icon: const Icon(Icons.my_location_rounded, size: 18, color: Colors.blueAccent),
+                                  label: const Text("Reanudar rastreo GPS", style: TextStyle(color: Colors.blueAccent, fontSize: 13, fontWeight: FontWeight.bold)),
+                                ),
+                            ],
                           )
                       ],
                     ),
@@ -492,6 +554,8 @@ class _PantallaDetalleAlertaState extends State<PantallaDetalleAlerta> {
                 ),
               ),
             ],
+              );
+            },
           );
         }
       ),

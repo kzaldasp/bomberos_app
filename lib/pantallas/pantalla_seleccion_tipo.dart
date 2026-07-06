@@ -30,12 +30,26 @@ class PantallaSeleccionTipo extends StatelessWidget {
               child: StreamBuilder<QuerySnapshot>(
                 stream: FirebaseFirestore.instance.collection('categorias').snapshots(),
                 builder: (context, snapshot) {
-                  // 1. Cargando
+                  // 1. Error (sin conexión o sin permisos)
+                  if (snapshot.hasError) {
+                    return Center(
+                      child: Padding(
+                        padding: const EdgeInsets.all(30),
+                        child: Text(
+                          "No se pudieron cargar las categorías.\nRevisa tu conexión.",
+                          textAlign: TextAlign.center,
+                          style: TextStyle(color: Colors.grey.shade600),
+                        ),
+                      ),
+                    );
+                  }
+
+                  // 2. Cargando
                   if (snapshot.connectionState == ConnectionState.waiting) {
                     return const Center(child: CircularProgressIndicator());
                   }
 
-                  // 2. Sin datos
+                  // 3. Sin datos
                   if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
                     return const Center(child: Text("No hay categorías configuradas"));
                   }

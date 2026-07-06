@@ -4,8 +4,11 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../servicios/servicio_auth.dart';
 import '../servicios/servicio_almacenamiento.dart';
+import '../servicios/servicio_notificaciones.dart';
 import '../config/tema_app.dart';
-import '../servicios/servicio_notificaciones.dart'; // <--- Agrega esta línea
+import '../config/utilidad_formato.dart';
+import '../config/utilidad_mensajes.dart';
+
 class PantallaCrearEvento extends StatefulWidget {
   const PantallaCrearEvento({super.key});
 
@@ -27,6 +30,12 @@ class _PantallaCrearEventoState extends State<PantallaCrearEvento> {
   final ServicioAlmacenamiento _servicioAlmacenamiento = ServicioAlmacenamiento();
   
   bool _guardando = false;
+
+  @override
+  void dispose() {
+    _descController.dispose();
+    super.dispose();
+  }
 
   // --- Funciones para seleccionar Fecha y Hora nativas ---
   Future<void> _seleccionarFecha(BuildContext context) async {
@@ -63,9 +72,7 @@ class _PantallaCrearEventoState extends State<PantallaCrearEvento> {
   // --- Función Principal de Guardado ---
   void _guardarEvento() async {
     if (_descController.text.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Por favor, ingresa una descripción.")),
-      );
+      UtilidadMensajes.mostrarError(context, "Por favor, ingresa una descripción.");
       return;
     }
 
@@ -106,20 +113,13 @@ await ServicioNotificaciones().enviarNotificacionSelectiva(
         cuerpo: _descController.text.trim(),
         urlImagen: urlSubida, 
       );
-if (mounted) {
+      if (mounted) {
         Navigator.pop(context);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text("¡$_tipoEvento agendado con éxito!"),
-            backgroundColor: Colors.green,
-          ),
-        );
+        UtilidadMensajes.mostrarExito(context, "¡$_tipoEvento agendado con éxito!");
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Error al agendar: $e"), backgroundColor: Colors.red),
-        );
+        UtilidadMensajes.mostrarError(context, "Error al agendar: $e");
       }
     } finally {
       if (mounted) setState(() => _guardando = false);
@@ -187,7 +187,7 @@ if (mounted) {
                   child: OutlinedButton.icon(
                     onPressed: () => _seleccionarFecha(context),
                     icon: const Icon(Icons.calendar_today, size: 18),
-                    label: Text("${_fechaSeleccionada.day}/${_fechaSeleccionada.month}/${_fechaSeleccionada.year}"),
+                    label: Text(UtilidadFormato.fecha(_fechaSeleccionada)),
                     style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 15)),
                   ),
                 ),

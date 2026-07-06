@@ -225,30 +225,6 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "4.1.2"
-  firebase_storage:
-    dependency: "direct main"
-    description:
-      name: firebase_storage
-      sha256: "825a5a64addc66b57a2e793b5e40343d1364e8b5a2a0d7e6cfc116ae9c021fbd"
-      url: "https://pub.dev"
-    source: hosted
-    version: "13.3.0"
-  firebase_storage_platform_interface:
-    dependency: transitive
-    description:
-      name: firebase_storage_platform_interface
-      sha256: f910990a2fed456756bdce72ea58e86b4b3f8da4706ac7fe0d3b15ac3dffc0f0
-      url: "https://pub.dev"
-    source: hosted
-    version: "5.2.20"
-  firebase_storage_web:
-    dependency: transitive
-    description:
-      name: firebase_storage_web
-      sha256: "80abcaca8e39c594b97a92099e5ac66787638cd3c5f85b663deb29e10820f00a"
-      url: "https://pub.dev"
-    source: hosted
-    version: "3.11.5"
   fixnum:
     dependency: transitive
     description:
@@ -360,6 +336,30 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "0.2.5"
+  google_cloud:
+    dependency: transitive
+    description:
+      name: google_cloud
+      sha256: b385e20726ef5315d302c5933bfb728103116c5be2d3d17094b01a82da538c1f
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.5.0"
+  google_identity_services_web:
+    dependency: transitive
+    description:
+      name: google_identity_services_web
+      sha256: "5d187c46dc59e02646e10fe82665fc3884a9b71bc1c90c2b8b749316d33ee454"
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.3.3+1"
+  googleapis_auth:
+    dependency: "direct main"
+    description:
+      name: googleapis_auth
+      sha256: "1417d8846663df5e7b77ca56591c5edd442c66ffc9c01ab036e138a21a148e86"
+      url: "https://pub.dev"
+    source: hosted
+    version: "2.3.2"
   gsettings:
     dependency: transitive
     description:
@@ -477,14 +477,6 @@ packages:
     description:
       name: mgrs_dart
       sha256: fb89ae62f05fa0bb90f70c31fc870bcbcfd516c843fb554452ab3396f78586f7
-      url: "https://pub.dev"
-    source: hosted
-    version: "2.0.0"
-  mime:
-    dependency: transitive
-    description:
-      name: mime
-      sha256: "41a20518f0cb1256669420fdba0cd90d21561e560ac240f26ef8322e45bb7ed6"
       url: "https://pub.dev"
     source: hosted
     version: "2.0.0"

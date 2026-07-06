@@ -24,7 +24,6 @@ class TemaApp {
         primary: azulInstitucional,
         secondary: rojoBombero,
         surface: Colors.white,
-        background: fondoClaro,
       ),
 
       // 1. APPBAR LIMPIO (Sin sombra, estilo plano)
@@ -73,7 +72,7 @@ class TemaApp {
           backgroundColor: rojoBombero,
           foregroundColor: Colors.white,
           elevation: 4,
-          shadowColor: rojoBombero.withOpacity(0.4), // Sombra del mismo color (efecto glow)
+          shadowColor: rojoBombero.withValues(alpha: 0.4), // Sombra del mismo color (efecto glow)
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 24),
           textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, letterSpacing: 1),

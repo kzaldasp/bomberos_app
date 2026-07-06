@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import '../config/tema_app.dart';
 
 class VistaSinAlertas extends StatelessWidget {
   const VistaSinAlertas({super.key});
@@ -14,7 +13,7 @@ class VistaSinAlertas extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(30),
             decoration: BoxDecoration(
-              color: Colors.green.withOpacity(0.1),
+              color: Colors.green.withValues(alpha: 0.1),
               shape: BoxShape.circle,
             ),
             child: Icon(
@@ -51,17 +50,17 @@ class VistaSinAlertas extends StatelessWidget {
           
           const SizedBox(height: 40),
           
-          // Botón decorativo o de "Actualizar"
-          OutlinedButton.icon(
-            onPressed: () {}, 
-            // Este botón es solo visual o para forzar refresh manual si quisieras
-            style: OutlinedButton.styleFrom(
-              foregroundColor: TemaApp.azulInstitucional,
-              side: const BorderSide(color: TemaApp.azulInstitucional),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20))
-            ),
-            icon: const Icon(Icons.refresh),
-            label: const Text("Sincronizar"),
+          // Pista de uso: la lista se actualiza sola y con pull-to-refresh
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.swipe_down_alt_rounded, size: 18, color: Colors.grey.shade400),
+              const SizedBox(width: 8),
+              Text(
+                "Desliza hacia abajo para actualizar",
+                style: TextStyle(color: Colors.grey.shade400, fontSize: 13),
+              ),
+            ],
           )
         ],
       ),

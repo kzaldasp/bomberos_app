@@ -1,17 +1,18 @@
 import 'dart:io';
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:file_picker/file_picker.dart';
 
+/// Subida de archivos adjuntos (croquis, PDFs, fotos) a Cloudinary,
+/// usando el plan gratuito con un "unsigned upload preset".
 class ServicioAlmacenamiento {
-  // Recuerda reemplazar con tus datos reales de Cloudinary
-  final String cloudName = "dprutnjty"; 
-  final String uploadPreset = "bomberos_preset"; 
+  static const String _cloudName = "dprutnjty";
+  static const String _uploadPreset = "bomberos_preset";
 
-  /// Abre el explorador nativo y permite elegir un PDF o Imagen.
+  /// Abre el explorador nativo y permite elegir un PDF o imagen.
   Future<File?> seleccionarArchivo() async {
     try {
-      // ✅ CORRECCIÓN PARA VERSIÓN 11.x: Se llama directo a pickFiles()
       FilePickerResult? resultado = await FilePicker.pickFiles(
         type: FileType.custom,
         allowedExtensions: ['pdf', 'jpg', 'jpeg', 'png'],
@@ -20,43 +21,32 @@ class ServicioAlmacenamiento {
       if (resultado != null && resultado.files.single.path != null) {
         return File(resultado.files.single.path!);
       }
-      return null; 
+      return null;
     } catch (e) {
-      print("🚨 Error al seleccionar archivo: $e");
+      debugPrint("Error al seleccionar archivo: $e");
       return null;
     }
   }
 
-  /// Sube el archivo físico a Cloudinary mediante su API REST.
+  /// Sube el archivo a Cloudinary y retorna su URL pública, o null si falla.
   Future<String?> subirArchivoAdjunto(File archivo) async {
     try {
-      // Usamos 'auto' en la URL para que Cloudinary detecte si es Imagen o PDF
-      final uri = Uri.parse("https://api.cloudinary.com/v1_1/$cloudName/auto/upload");
-      
-      var request = http.MultipartRequest('POST', uri);
-      
-      request.fields['upload_preset'] = uploadPreset;
-      
-      var multipartFile = await http.MultipartFile.fromPath('file', archivo.path);
-      request.files.add(multipartFile);
+      // 'auto' hace que Cloudinary detecte solo si es imagen o PDF
+      final uri = Uri.parse("https://api.cloudinary.com/v1_1/$_cloudName/auto/upload");
 
-      var streamResponse = await request.send();
-      var response = await http.Response.fromStream(streamResponse);
+      final request = http.MultipartRequest('POST', uri)
+        ..fields['upload_preset'] = _uploadPreset
+        ..files.add(await http.MultipartFile.fromPath('file', archivo.path));
+
+      final response = await http.Response.fromStream(await request.send());
 
       if (response.statusCode == 200) {
-        var jsonResponse = jsonDecode(response.body);
-        
-        String urlDescarga = jsonResponse['secure_url'];
-        print("✅ Archivo subido con éxito a Cloudinary: $urlDescarga");
-        
-        return urlDescarga;
-      } else {
-        print("🚨 Error de Cloudinary. Código: ${response.statusCode}");
-        print("Detalle: ${response.body}");
-        return null;
+        return jsonDecode(response.body)['secure_url'] as String?;
       }
+      debugPrint("Cloudinary rechazó la subida (${response.statusCode}): ${response.body}");
+      return null;
     } catch (e) {
-      print("🚨 Error grave en la red al subir archivo: $e");
+      debugPrint("Error de red al subir archivo: $e");
       return null;
     }
   }

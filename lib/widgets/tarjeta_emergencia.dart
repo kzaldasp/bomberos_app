@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../config/utilidad_formato.dart';
 import '../modelos/emergencia_modelo.dart';
 
 class TarjetaEmergencia extends StatelessWidget {
@@ -21,14 +22,14 @@ class TarjetaEmergencia extends StatelessWidget {
     // Si está finalizada, usamos gris para indicar "historial".
     final Color colorPrioritario = esFinalizada ? Colors.grey : alerta.colorCategoria;
 
+    // El espaciado entre tarjetas lo pone la lista que las contiene.
     return Container(
-      margin: const EdgeInsets.only(bottom: 16),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withValues(alpha: 0.05),
             blurRadius: 15,
             offset: const Offset(0, 5),
           ),
@@ -52,7 +53,7 @@ class TarjetaEmergencia extends StatelessWidget {
                       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                       decoration: BoxDecoration(
                         // Fondo suave del mismo color
-                        color: colorPrioritario.withOpacity(0.1),
+                        color: colorPrioritario.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(10),
                       ),
                       child: Row(
@@ -72,9 +73,9 @@ class TarjetaEmergencia extends StatelessWidget {
                         ],
                       ),
                     ),
-                    // Hora
+                    // Hora (con fecha si la alerta es de otro día)
                     Text(
-                      "${alerta.fechaHora.toDate().hour}:${alerta.fechaHora.toDate().minute.toString().padLeft(2, '0')}",
+                      UtilidadFormato.horaInteligente(alerta.fechaHora.toDate()),
                       style: TextStyle(color: Colors.grey.shade400, fontSize: 12),
                     ),
                   ],

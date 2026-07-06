@@ -1,23 +1,24 @@
-import 'package:bomberos_app/pantallas/pantalla_lista_eventos.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../pantallas/pantalla_historial.dart';
 import '../pantallas/pantalla_gestion_roles.dart';
 import '../pantallas/pantalla_crear_evento.dart';
+import '../pantallas/pantalla_lista_eventos.dart';
 import '../servicios/servicio_auth.dart';
 import '../config/tema_app.dart';
 
 class MenuLateral extends StatelessWidget {
   final String nombreUsuario;
   final String rangoUsuario;
+  final String rolUsuario;
   final VoidCallback onCerrarSesion;
 
   const MenuLateral({
     super.key,
     required this.nombreUsuario,
     required this.rangoUsuario,
+    required this.rolUsuario,
     required this.onCerrarSesion,
   });
 
@@ -57,15 +58,15 @@ class MenuLateral extends StatelessWidget {
                 const SizedBox(height: 5),
                 Text(
                   FirebaseAuth.instance.currentUser?.email ?? "",
-                  style: TextStyle(color: Colors.white.withOpacity(0.7), fontSize: 13),
+                  style: TextStyle(color: Colors.white.withValues(alpha: 0.7), fontSize: 13),
                 ),
                 const SizedBox(height: 15),
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                   decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.15),
+                    color: Colors.white.withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: Colors.white.withOpacity(0.1)),
+                    border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
                   ),
                   child: Text(
                     rangoUsuario.toUpperCase(),
@@ -96,73 +97,47 @@ class MenuLateral extends StatelessWidget {
                   text: "Historial de Guardias",
                   isSelected: false,
                   onTap: () {
+                    Navigator.pop(context);
                     Navigator.push(
                       context,
-                      MaterialPageRoute(builder: (context) => const PantallaHistorial(rolUsuario: 'bombero')),
+                      MaterialPageRoute(builder: (context) => PantallaHistorial(rolUsuario: rolUsuario)),
                     );
                   },
                 ),
                 const SizedBox(height: 10),
-_ItemMenu(
-  icon: Icons.calendar_today_rounded,
-  text: "Eventos Institucionales",
-  isSelected: false,
-  onTap: () {
-    Navigator.pop(context);
-    Navigator.push(context, MaterialPageRoute(builder: (context) => const PantallaListaEventos()));
-  },
-),
+                _ItemMenu(
+                  icon: Icons.calendar_today_rounded,
+                  text: "Eventos Institucionales",
+                  isSelected: false,
+                  onTap: () {
+                    Navigator.pop(context);
+                    Navigator.push(context, MaterialPageRoute(builder: (context) => const PantallaListaEventos()));
+                  },
+                ),
                 const SizedBox(height: 10),
 
                 // OPCIONES EXCLUSIVAS PARA ADMINISTRADORES
-                Builder(
-                  builder: (context) {
-                    final uid = ServicioAuth().usuarioActual?.uid;
-                    if (uid == null) return const SizedBox.shrink();
-
-                    return StreamBuilder<DocumentSnapshot>(
-                      stream: FirebaseFirestore.instance.collection('usuarios').doc(uid).snapshots(),
-                      builder: (context, snapshot) {
-                        if (!snapshot.hasData || !snapshot.data!.exists) {
-                          return const SizedBox.shrink();
-                        }
-
-                        final userData = snapshot.data!.data() as Map<String, dynamic>;
-                        final String rol = userData.containsKey('rol') ? userData['rol'] : 'operativo';
-
-                        if (rol != 'admin') return const SizedBox.shrink();
-
-                        // Como ya estamos en un ListView, no usamos una Column aquí para evitar conflictos de layout
-                        return ListView(
-                          shrinkWrap: true, // Importante para que ListView funcione dentro de otro ListView
-                          physics: const NeverScrollableScrollPhysics(), // Desactiva scroll interno
-                          padding: EdgeInsets.zero,
-                          children: [
-                            _ItemMenu(
-                              icon: Icons.manage_accounts_rounded,
-                              text: "Gestión de Personal",
-                              isSelected: false,
-                              onTap: () {
-                                Navigator.pop(context);
-                                Navigator.push(context, MaterialPageRoute(builder: (context) => const PantallaGestionRoles()));
-                              },
-                            ),
-                            const SizedBox(height: 10),
-                            _ItemMenu(
-                              icon: Icons.event_available_rounded,
-                              text: "Agendar Evento",
-                              isSelected: false,
-                              onTap: () {
-                                Navigator.pop(context);
-                                Navigator.push(context, MaterialPageRoute(builder: (context) => const PantallaCrearEvento()));
-                              },
-                            ),
-                          ],
-                        );
-                      },
-                    );
-                  },
-                ),
+                if (rolUsuario == Roles.admin) ...[
+                  _ItemMenu(
+                    icon: Icons.manage_accounts_rounded,
+                    text: "Gestión de Personal",
+                    isSelected: false,
+                    onTap: () {
+                      Navigator.pop(context);
+                      Navigator.push(context, MaterialPageRoute(builder: (context) => const PantallaGestionRoles()));
+                    },
+                  ),
+                  const SizedBox(height: 10),
+                  _ItemMenu(
+                    icon: Icons.event_available_rounded,
+                    text: "Agendar Evento",
+                    isSelected: false,
+                    onTap: () {
+                      Navigator.pop(context);
+                      Navigator.push(context, MaterialPageRoute(builder: (context) => const PantallaCrearEvento()));
+                    },
+                  ),
+                ],
               ],
             ),
           ),
@@ -180,7 +155,7 @@ _ItemMenu(
                   child: Container(
                     padding: const EdgeInsets.symmetric(vertical: 15, horizontal: 20),
                     decoration: BoxDecoration(
-                      color: TemaApp.rojoBombero.withOpacity(0.08),
+                      color: TemaApp.rojoBombero.withValues(alpha: 0.08),
                       borderRadius: BorderRadius.circular(15),
                     ),
                     child: const Row(
@@ -230,7 +205,7 @@ class _ItemMenu extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.symmetric(vertical: 15, horizontal: 20),
           decoration: BoxDecoration(
-            color: isSelected ? TemaApp.azulInstitucional.withOpacity(0.08) : Colors.transparent,
+            color: isSelected ? TemaApp.azulInstitucional.withValues(alpha: 0.08) : Colors.transparent,
             borderRadius: BorderRadius.circular(15),
           ),
           child: Row(

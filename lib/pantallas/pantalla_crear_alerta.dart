@@ -30,9 +30,9 @@ class _PantallaCrearAlertaState extends State<PantallaCrearAlerta> {
   File? _archivoAdjunto;
   final ServicioAlmacenamiento _servicioAlmacenamiento = ServicioAlmacenamiento();
 
-  // --- NUEVA LÓGICA DE DESTINATARIOS ---
-  bool _enviarATodos = true; // Por defecto envía a general
-  List<String> _usuariosSeleccionados = [];
+  // --- LÓGICA DE DESTINATARIOS ---
+  bool _enviarATodos = true; // Por defecto envía a todo el personal
+  final List<String> _usuariosSeleccionados = [];
 
   @override
   void initState() {
@@ -47,7 +47,8 @@ class _PantallaCrearAlertaState extends State<PantallaCrearAlerta> {
   }
 
   String _colorToHex(Color color) {
-    return '#${color.value.toRadixString(16).substring(2).toUpperCase()}';
+    final rgb = color.toARGB32() & 0xFFFFFF;
+    return '#${rgb.toRadixString(16).padLeft(6, '0').toUpperCase()}';
   }
 
   // Abre el modal de selección múltiple
@@ -226,7 +227,7 @@ class _PantallaCrearAlertaState extends State<PantallaCrearAlerta> {
             decoration: BoxDecoration(
               color: Colors.white,
               borderRadius: const BorderRadius.vertical(bottom: Radius.circular(30)),
-              boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 15, offset: const Offset(0, 5))]
+              boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 15, offset: const Offset(0, 5))]
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -266,13 +267,24 @@ class _PantallaCrearAlertaState extends State<PantallaCrearAlerta> {
                     ),
                     Expanded(
                       child: Text(
-                        _archivoAdjunto == null ? "Adjuntar Croquis/Doc (Opcional)" : "Archivo listo",
+                        _archivoAdjunto == null
+                            ? "Adjuntar Croquis/Doc (Opcional)"
+                            : _archivoAdjunto!.path.split(RegExp(r'[/\\]')).last,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                         style: TextStyle(
                           color: _archivoAdjunto == null ? Colors.black54 : Colors.green,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
                     ),
+                    // Botón para quitar el adjunto sin salir de la pantalla
+                    if (_archivoAdjunto != null)
+                      IconButton(
+                        icon: const Icon(Icons.close, size: 20, color: Colors.grey),
+                        tooltip: "Quitar archivo",
+                        onPressed: () => setState(() => _archivoAdjunto = null),
+                      ),
                   ],
                 ),
                 
@@ -280,40 +292,36 @@ class _PantallaCrearAlertaState extends State<PantallaCrearAlerta> {
 
                 // 1.3 SELECTOR DE DESTINATARIOS VISUAL (LOS RADIOS)
                 const Text("Notificar a:", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.blueGrey)),
-                Row(
-                  children: [
-                    Expanded(
-                      child: RadioListTile<bool>(
-                        contentPadding: EdgeInsets.zero,
-                        title: const Text("Todo el personal", style: TextStyle(fontSize: 14)),
-                        value: true,
-                        groupValue: _enviarATodos,
-                        activeColor: colorCat,
-                        onChanged: (bool? valor) {
-                          setState(() {
-                            _enviarATodos = valor!;
-                            _usuariosSeleccionados.clear(); // Limpiamos la lista si vuelve a general
-                          });
-                        },
+                RadioGroup<bool>(
+                  groupValue: _enviarATodos,
+                  onChanged: (bool? valor) {
+                    setState(() {
+                      _enviarATodos = valor!;
+                      if (_enviarATodos) _usuariosSeleccionados.clear();
+                    });
+                    // Si toca "Selectivo", abrimos la lista para ahorrarle un toque
+                    if (!_enviarATodos) _abrirSelectorUsuarios();
+                  },
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: RadioListTile<bool>(
+                          contentPadding: EdgeInsets.zero,
+                          title: const Text("Todo el personal", style: TextStyle(fontSize: 14)),
+                          value: true,
+                          activeColor: colorCat,
+                        ),
                       ),
-                    ),
-                    Expanded(
-                      child: RadioListTile<bool>(
-                        contentPadding: EdgeInsets.zero,
-                        title: const Text("Grupo selectivo", style: TextStyle(fontSize: 14)),
-                        value: false,
-                        groupValue: _enviarATodos,
-                        activeColor: colorCat,
-                        onChanged: (bool? valor) {
-                          setState(() {
-                            _enviarATodos = valor!;
-                          });
-                          // Si toca "Selectivo", abrimos automáticamente la lista para ahorrarle un toque
-                          if (!_enviarATodos) _abrirSelectorUsuarios();
-                        },
+                      Expanded(
+                        child: RadioListTile<bool>(
+                          contentPadding: EdgeInsets.zero,
+                          title: const Text("Grupo selectivo", style: TextStyle(fontSize: 14)),
+                          value: false,
+                          activeColor: colorCat,
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
                 
                 // Si está en modo selectivo, mostramos a quiénes eligió y el botón de editar
@@ -353,7 +361,7 @@ class _PantallaCrearAlertaState extends State<PantallaCrearAlerta> {
               margin: const EdgeInsets.symmetric(horizontal: 20),
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(20),
-                boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 10, offset: const Offset(0, 4))],
+                boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.1), blurRadius: 10, offset: const Offset(0, 4))],
                 border: Border.all(color: Colors.white, width: 4),
               ),
               child: ClipRRect(
@@ -380,9 +388,9 @@ class _PantallaCrearAlertaState extends State<PantallaCrearAlerta> {
                               Container(
                                 width: 60, height: 60,
                                 decoration: BoxDecoration(
-                                  color: colorCat.withOpacity(0.2),
+                                  color: colorCat.withValues(alpha: 0.2),
                                   shape: BoxShape.circle,
-                                  border: Border.all(color: colorCat.withOpacity(0.5), width: 1),
+                                  border: Border.all(color: colorCat.withValues(alpha: 0.5), width: 1),
                                 ),
                               ),
                               Container(

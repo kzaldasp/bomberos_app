@@ -1,16 +1,64 @@
-# bomberos_app
+# Bomberos Otavalo — Sistema de Alertas
 
-A new Flutter project.
+App móvil (Flutter) del Cuerpo de Bomberos de Otavalo para gestionar
+emergencias en tiempo real: alertas, respuesta del personal, rastreo del
+trayecto de cada bombero, eventos institucionales y gestión de usuarios.
 
-## Getting Started
+Construida 100% con servicios gratuitos: **Firebase Spark** (Auth + Firestore
++ FCM), **Cloudinary** (archivos adjuntos) y **OpenStreetMap** (mapas).
 
-This project is a starting point for a Flutter application.
+## Funcionalidades
 
-A few resources to get you started if this is your first Flutter project:
+| Rol | Puede |
+|---|---|
+| **Admin** | Crear alertas (categoría, mapa, adjunto, destinatarios), finalizar operativos, ver el trayecto de cada bombero, gestionar personal y roles, agendar eventos |
+| **Bombero** | Recibir alertas push, confirmar "Voy en camino" con ETA, compartir su trayecto GPS en vivo, ver historial y eventos |
 
-- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
+## Rastreo de trayecto (diseño para plan gratuito)
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+Cuando un bombero confirma asistencia, la app registra su recorrido en
+`emergencias/{id}/trayectos/{uid}`:
+
+- El GPS emite un punto cada ~20 m de movimiento, pero **se escribe a
+  Firestore máximo 1 vez cada 30 s** agrupando los puntos pendientes en un
+  solo `arrayUnion` → ~120 escrituras/hora por bombero (el plan gratuito da
+  20.000/día).
+- En Android corre como **servicio en primer plano** (notificación fija), así
+  el rastreo sigue aunque el bombero minimice la app para usar Google Maps.
+- Se apaga solo cuando el admin finaliza la emergencia, o manualmente con
+  "Dejar de compartir mi ubicación".
+- La central ve el recorrido como una línea sobre el mapa, en vivo.
+
+## Notificaciones push
+
+Se envían con **FCM HTTP v1** usando *topics* (`todos` y `u_<uid>`), sin
+backend. Requiere colocar una credencial de cuenta de servicio con permiso
+mínimo — instrucciones completas en [`assets/credenciales/LEEME.md`](assets/credenciales/LEEME.md).
+Sin la credencial la app funciona igual (las alertas llegan en tiempo real
+con la app abierta), solo no hay push con la app cerrada.
+
+## Estructura
+
+```
+lib/
+├── config/        # Tema, iconos, mensajes (snackbars)
+├── modelos/       # EmergenciaModelo, CategoriaModelo
+├── pantallas/     # Login, dashboard, crear/detalle alerta, eventos, personal
+├── servicios/     # Auth, emergencias, rastreo GPS, notificaciones, Cloudinary
+└── widgets/       # Menú lateral, tarjetas, listas
+```
+
+Colecciones en Firestore: `usuarios`, `emergencias` (+ subcolección
+`trayectos`), `categorias`, `eventos`.
+
+## Compilar
+
+```bash
+flutter pub get
+flutter run                # desarrollo
+flutter build apk --release --obfuscate --split-debug-info=build/simbolos
+```
+
+> **Pendiente antes de publicar en Play Store:** cambiar el `applicationId`
+> (`com.example.bomberos_app`) por uno propio y registrar esa nueva app
+> Android en la consola de Firebase (descargar el nuevo `google-services.json`).

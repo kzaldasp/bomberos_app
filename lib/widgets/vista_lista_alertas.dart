@@ -18,34 +18,25 @@ class VistaListaAlertas extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return StreamBuilder<List<EmergenciaModelo>>(
-      // --- CAMBIO CLAVE AQUÍ ---
-      // Llamamos a la función que filtra: WHERE estado == 'activa'
-      stream: servicioEmergencias.obtenerAlertasActivas(), 
-      
+      // Solo alertas con estado == 'activa'
+      stream: servicioEmergencias.obtenerAlertasActivas(),
+
       builder: (context, snapshot) {
-        // En vista_lista_alertas.dart
-
-        if (!snapshot.hasData ) {
-          // AQUÍ LLAMAS AL NUEVO WIDGET
-          return const VistaSinAlertas(); 
-        }
-        // 1. Estado de Carga
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator());
-        }
-
-        // 2. Estado de Error
+        // 1. Estado de Error
         if (snapshot.hasError) {
           return Center(child: Text("Error: ${snapshot.error}"));
         }
 
-        // 3. Estado Vacío (Sin novedades)
-        if (!snapshot.hasData || snapshot.data!.isEmpty) {
-          return _vistaSinAlertas();
+        // 2. Estado de Carga
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
         }
 
-        // 4. Estado con Datos
-        final listaAlertas = snapshot.data!;
+        // 3. Estado Vacío (Sin novedades)
+        final listaAlertas = snapshot.data ?? [];
+        if (listaAlertas.isEmpty) {
+          return const VistaSinAlertas();
+        }
         
         return ListView.builder(
           padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 20),
@@ -73,24 +64,6 @@ class VistaListaAlertas extends StatelessWidget {
           },
         );
       },
-    );
-  }
-
-  Widget _vistaSinAlertas() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(Icons.check_circle_outline, size: 80, color: Colors.grey.shade300),
-          const SizedBox(height: 20),
-          Text(
-            "Sin novedades",
-            style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.grey.shade400),
-          ),
-          const SizedBox(height: 5),
-          const Text("El cuartel está tranquilo.", style: TextStyle(color: Colors.grey)),
-        ],
-      ),
     );
   }
 }

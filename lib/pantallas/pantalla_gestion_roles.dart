@@ -1,9 +1,34 @@
-import 'package:bomberos_app/config/tema_app.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import '../config/tema_app.dart';
+import '../config/utilidad_mensajes.dart';
+import '../servicios/servicio_auth.dart';
 import 'pantalla_crear_usuario.dart';
 class PantallaGestionRoles extends StatelessWidget {
   const PantallaGestionRoles({super.key});
+
+  /// Diálogo de confirmación antes de subir/bajar el rol de alguien.
+  Future<bool> _confirmarCambio(BuildContext context, String nombre, bool haciaAdmin) async {
+    final confirmado = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Text(haciaAdmin ? "¿Dar permisos de Admin?" : "¿Quitar permisos de Admin?"),
+        content: Text(haciaAdmin
+            ? "$nombre podrá crear alertas, gestionar personal y agendar eventos."
+            : "$nombre pasará a ser Tropa y perderá el acceso administrativo."),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text("Cancelar")),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: haciaAdmin ? Colors.orange : Colors.blueGrey),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text(haciaAdmin ? "SÍ, DAR ADMIN" : "SÍ, QUITAR", style: const TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+    return confirmado == true;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -49,56 +74,56 @@ class PantallaGestionRoles extends StatelessWidget {
               // Extraemos datos con seguridad por si algún campo falta en Firestore
               final Map<String, dynamic> userData = user.data() as Map<String, dynamic>;
               final String nombre = userData['nombre'] ?? 'Bombero sin nombre';
-              final String correo = userData['correo'] ?? 'Sin correo';
-              
-              // Si no tiene el campo rol, asumimos que es 'operativo'
-              final String rolActual = userData.containsKey('rol') ? userData['rol'] : 'operativo';
-              final bool esAdmin = rolActual == 'admin';
+              final String correo = userData['email'] ?? 'Sin correo';
+              final String rango = userData['rango'] ?? 'Sin rango';
+
+              final String rolActual = userData['rol'] ?? Roles.bombero;
+              final bool esAdmin = rolActual == Roles.admin;
+
+              // Nadie puede cambiarse el rol a sí mismo: evita que el último
+              // admin se degrade por accidente y se quede sin acceso.
+              final bool esMiCuenta = userId == ServicioAuth().usuarioActual?.uid;
 
               return Card(
                 elevation: 2,
                 margin: const EdgeInsets.symmetric(vertical: 6),
                 child: SwitchListTile(
-                  title: Text(nombre, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                  subtitle: Text("$correo\nRol actual: ${rolActual.toUpperCase()}"),
+                  title: Text(
+                    esMiCuenta ? "$nombre (Tú)" : nombre,
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                  ),
+                  subtitle: Text("$correo\n$rango • ${esAdmin ? 'ADMIN' : 'TROPA'}"),
                   value: esAdmin,
-                  activeColor: Colors.orange, // Color cuando es admin
+                  activeThumbColor: Colors.orange, // Color cuando es admin
                   secondary: CircleAvatar(
                     backgroundColor: esAdmin ? Colors.orange : Colors.grey,
                     child: Icon(
-                      esAdmin ? Icons.admin_panel_settings : Icons.person, 
+                      esAdmin ? Icons.admin_panel_settings : Icons.person,
                       color: Colors.white
                     ),
                   ),
-                  onChanged: (bool valorSwitch) async {
-                    // Lógica para cambiar el rol en Firestore al presionar el switch
-                    String nuevoRol = valorSwitch ? 'admin' : 'operativo';
-                    
-                    try {
-                      await FirebaseFirestore.instance
-                          .collection('usuarios')
-                          .doc(userId)
-                          .update({'rol': nuevoRol});
-                          
-                      if (context.mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text("Rol de $nombre actualizado a $nuevoRol"),
-                            backgroundColor: Colors.green,
-                          ),
-                        );
-                      }
-                    } catch (e) {
-                      if (context.mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text("Error al actualizar: $e"),
-                            backgroundColor: Colors.red,
-                          ),
-                        );
-                      }
-                    }
-                  },
+                  onChanged: esMiCuenta
+                      ? null // Deshabilitado en la propia cuenta
+                      : (bool valorSwitch) async {
+                          if (!await _confirmarCambio(context, nombre, valorSwitch)) return;
+
+                          final String nuevoRol = valorSwitch ? Roles.admin : Roles.bombero;
+                          try {
+                            await FirebaseFirestore.instance
+                                .collection('usuarios')
+                                .doc(userId)
+                                .update({'rol': nuevoRol});
+
+                            if (context.mounted) {
+                              UtilidadMensajes.mostrarExito(context,
+                                  "Rol de $nombre actualizado a ${valorSwitch ? 'Admin' : 'Tropa'}");
+                            }
+                          } catch (e) {
+                            if (context.mounted) {
+                              UtilidadMensajes.mostrarError(context, "Error al actualizar: $e");
+                            }
+                          }
+                        },
                 ),
               );
             },

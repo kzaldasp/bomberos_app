@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import '../config/tema_app.dart';
 import '../modelos/emergencia_modelo.dart';
+import '../servicios/servicio_emergencias.dart';
 import '../widgets/tarjeta_emergencia.dart';
 import 'pantalla_detalle_alerta.dart';
 
@@ -20,21 +20,17 @@ class PantallaHistorial extends StatelessWidget {
         centerTitle: true,
         elevation: 0,
       ),
-      body: StreamBuilder<QuerySnapshot>(
-        // --- LA CONSULTA CLAVE ---
-        // Buscamos solo las FINALIZADAS y las ordenamos por fecha
-        stream: FirebaseFirestore.instance
-            .collection('emergencias')
-            .where('estado', isEqualTo: 'finalizada') // <--- EL FILTRO
-            .orderBy('fecha_hora', descending: true)
-            .snapshots(),
-        
+      body: StreamBuilder<List<EmergenciaModelo>>(
+        // Solo las FINALIZADAS, ordenadas por fecha (ver ServicioEmergencias)
+        stream: ServicioEmergencias().obtenerHistorial(),
+
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
           }
 
-          if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+          final alertas = snapshot.data ?? [];
+          if (alertas.isEmpty) {
             return Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
@@ -47,14 +43,12 @@ class PantallaHistorial extends StatelessWidget {
             );
           }
 
-          final docs = snapshot.data!.docs;
-
           return ListView.builder(
             padding: const EdgeInsets.all(15),
-            itemCount: docs.length,
+            itemCount: alertas.length,
             itemBuilder: (context, index) {
-              final alerta = EmergenciaModelo.desdeFirestore(docs[index]);
-              
+              final alerta = alertas[index];
+
               // Usamos la misma tarjeta, pero al hacer clic vamos al detalle bloqueado
               return Padding(
                 padding: const EdgeInsets.only(bottom: 15),
