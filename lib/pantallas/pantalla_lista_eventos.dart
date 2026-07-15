@@ -26,13 +26,13 @@ class _PantallaListaEventosState extends State<PantallaListaEventos> {
     DateTime finDia = DateTime(_fechaFiltro.year, _fechaFiltro.month, _fechaFiltro.day, 23, 59, 59);
 
     return Scaffold(
+      backgroundColor: TemaApp.fondo,
       appBar: AppBar(
-        title: const Text("Calendario de Eventos"),
-        backgroundColor: TemaApp.azulInstitucional,
-        foregroundColor: Colors.white,
+        title: const Text("Eventos"),
         actions: [
           IconButton(
-            icon: const Icon(Icons.calendar_month),
+            icon: const Icon(Icons.calendar_month_rounded),
+            tooltip: "Elegir fecha",
             onPressed: () async {
               final fecha = await showDatePicker(
                 context: context,
@@ -42,74 +42,136 @@ class _PantallaListaEventosState extends State<PantallaListaEventos> {
               );
               if (fecha != null) setState(() => _fechaFiltro = fecha);
             },
-          )
+          ),
         ],
       ),
       body: Column(
         children: [
-          // Selector de fecha rápido
+          // ---- Filtro de fecha ----
           Container(
-            padding: const EdgeInsets.all(15),
-            color: Colors.white,
+            width: double.infinity,
+            margin: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            decoration: TemaApp.decoracionTarjeta(radioPersonalizado: TemaApp.radio),
             child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                const Icon(Icons.filter_alt, color: Colors.grey, size: 18),
+                const Icon(Icons.event_rounded, color: TemaApp.rojo, size: 18),
                 const SizedBox(width: 10),
-                Text(
-                  "Mostrando: ${UtilidadFormato.fecha(_fechaFiltro)}",
-                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                Expanded(
+                  child: Text(
+                    _esHoy(_fechaFiltro) ? "Hoy · ${UtilidadFormato.fecha(_fechaFiltro)}" : UtilidadFormato.fecha(_fechaFiltro),
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w800,
+                      fontSize: 14,
+                      color: TemaApp.negro,
+                    ),
+                  ),
                 ),
                 if (!_esHoy(_fechaFiltro))
                   TextButton(
                     onPressed: () => setState(() => _fechaFiltro = DateTime.now()),
-                    child: const Text("Ver Hoy"),
-                  )
+                    child: const Text("Ver hoy"),
+                  ),
               ],
             ),
           ),
-          
+
           Expanded(
             child: StreamBuilder<QuerySnapshot>(
               stream: FirebaseFirestore.instance
                   .collection('eventos')
                   .where('fecha_programada', isGreaterThanOrEqualTo: inicioDia)
                   .where('fecha_programada', isLessThanOrEqualTo: finDia)
+                  .orderBy('fecha_programada')
                   .snapshots(),
               builder: (context, snapshot) {
                 if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
-                
+
                 final eventos = snapshot.data!.docs;
 
                 if (eventos.isEmpty) {
                   return const Center(
-                    child: Text("No hay eventos agendados para esta fecha."),
+                    child: Text(
+                      "No hay eventos agendados para esta fecha.",
+                      style: TextStyle(color: TemaApp.textoSecundario, fontSize: 13.5),
+                    ),
                   );
                 }
 
                 return ListView.builder(
-                  padding: const EdgeInsets.all(15),
+                  padding: const EdgeInsets.all(16),
                   itemCount: eventos.length,
                   itemBuilder: (context, index) {
                     var ev = eventos[index].data() as Map<String, dynamic>;
                     Timestamp ts = ev['fecha_programada'];
                     DateTime hora = ts.toDate();
 
-                    return Card(
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
-                      child: ListTile(
-                        leading: CircleAvatar(
-                          backgroundColor: TemaApp.azulInstitucional.withValues(alpha: 0.1),
-                          child: const Icon(Icons.event_note, color: TemaApp.azulInstitucional),
-                        ),
-                        title: Text(ev['tipo_evento'] ?? 'Evento', style: const TextStyle(fontWeight: FontWeight.bold)),
-                        subtitle: Text("${ev['descripcion'] ?? ''}\n⏰ ${UtilidadFormato.hora(hora)}"),
-                        trailing: ev['url_adjunto'] != null 
-                          ? IconButton(
-                              icon: const Icon(Icons.file_present, color: Colors.blue),
-                              onPressed: () => launchUrl(Uri.parse(ev['url_adjunto']), mode: LaunchMode.externalApplication),
-                            )
-                          : null,
+                    return Container(
+                      margin: const EdgeInsets.only(bottom: 12),
+                      padding: const EdgeInsets.all(16),
+                      decoration: TemaApp.decoracionTarjeta(),
+                      child: Row(
+                        children: [
+                          // Bloque de hora
+                          Container(
+                            width: 58,
+                            padding: const EdgeInsets.symmetric(vertical: 10),
+                            decoration: BoxDecoration(
+                              color: TemaApp.rojoSuave,
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Column(
+                              children: [
+                                const Icon(Icons.schedule_rounded, size: 15, color: TemaApp.rojo),
+                                const SizedBox(height: 4),
+                                Text(
+                                  UtilidadFormato.hora(hora),
+                                  style: const TextStyle(
+                                    color: TemaApp.rojo,
+                                    fontWeight: FontWeight.w800,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 14),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  ev['tipo_evento'] ?? 'Evento',
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.w800,
+                                    fontSize: 15,
+                                    color: TemaApp.negro,
+                                  ),
+                                ),
+                                const SizedBox(height: 3),
+                                Text(
+                                  ev['descripcion'] ?? '',
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    color: TemaApp.textoSecundario,
+                                    fontSize: 13,
+                                    height: 1.4,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          if (ev['url_adjunto'] != null)
+                            IconButton(
+                              icon: const Icon(Icons.file_present_rounded, color: TemaApp.negro),
+                              tooltip: "Ver adjunto",
+                              onPressed: () => launchUrl(
+                                Uri.parse(ev['url_adjunto']),
+                                mode: LaunchMode.externalApplication,
+                              ),
+                            ),
+                        ],
                       ),
                     );
                   },

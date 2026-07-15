@@ -66,30 +66,22 @@ class _PantallaDashboardState extends State<PantallaDashboard> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: TemaApp.fondoClaro,
+      backgroundColor: TemaApp.fondo,
       appBar: AppBar(
-        title: Column(
+        title: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Text(
-              "CENTRAL DE ALERTAS",
-              style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, letterSpacing: 1.2),
-            ),
-            Text(
-              "Cuerpo de Bomberos Otavalo",
-              style: TextStyle(fontSize: 10, color: Colors.white.withValues(alpha: 0.8), fontWeight: FontWeight.w400),
-            ),
+            Image.asset('assets/images/logo.png', height: 26),
+            const SizedBox(width: 10),
+            const Text("Central de Alertas"),
           ],
         ),
-        centerTitle: true,
-        backgroundColor: TemaApp.azulInstitucional,
-        foregroundColor: Colors.white,
-        elevation: 2,
         actions: [
           IconButton(
             onPressed: _refrescarAlertas,
             icon: const Icon(Icons.refresh_rounded),
-          )
+            tooltip: "Actualizar",
+          ),
         ],
       ),
       drawer: MenuLateral(
@@ -98,27 +90,25 @@ class _PantallaDashboardState extends State<PantallaDashboard> {
         rolUsuario: widget.rolUsuario,
         onCerrarSesion: _cerrarSesion,
       ),
-      floatingActionButton: widget.rolUsuario == Roles.admin
-          ? FloatingActionButton.extended(
-              backgroundColor: TemaApp.rojoBombero,
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) => const PantallaSeleccionTipo()),
-                );
-              },
-              icon: const Icon(Icons.add_alert_rounded, color: Colors.white),
-              label: const Text(
-                "NUEVA ALERTA",
-                style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-              ),
-              elevation: 4,
-            )
-          : null,
-      
+      // Cualquier usuario (admin o tropa) puede emitir una alerta.
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => PantallaSeleccionTipo(rolUsuario: widget.rolUsuario),
+            ),
+          );
+        },
+        icon: const Icon(Icons.add_alert_rounded),
+        label: const Text(
+          "NUEVA ALERTA",
+          style: TextStyle(fontWeight: FontWeight.w800, letterSpacing: 0.6),
+        ),
+      ),
       body: RefreshIndicator(
         onRefresh: _refrescarAlertas,
-        color: TemaApp.rojoBombero,
+        color: TemaApp.rojo,
         child: VistaListaAlertas(
           servicioEmergencias: _servicioEmergencias,
           rolUsuario: widget.rolUsuario,

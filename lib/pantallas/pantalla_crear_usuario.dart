@@ -12,19 +12,19 @@ class PantallaCrearUsuario extends StatefulWidget {
 
 class _PantallaCrearUsuarioState extends State<PantallaCrearUsuario> {
   final _formKey = GlobalKey<FormState>();
-  
+
   final _nombreCtrl = TextEditingController();
   final _emailCtrl = TextEditingController();
   final _passCtrl = TextEditingController();
 
   String _rolSeleccionado = Roles.bombero;
   String _rangoSeleccionado = 'Bombero Operativo';
-  
+
   bool _guardando = false;
   bool _ocultarPass = true;
 
   final List<String> _rangos = [
-    'Comandante', 'Jefe de Operaciones', 'Capitán', 'Teniente', 
+    'Comandante', 'Jefe de Operaciones', 'Capitán', 'Teniente',
     'Subteniente', 'Sargento', 'Cabo', 'Bombero Operativo'
   ];
 
@@ -38,7 +38,7 @@ class _PantallaCrearUsuarioState extends State<PantallaCrearUsuario> {
 
   void _crearUsuario() async {
     if (!_formKey.currentState!.validate()) return;
-    
+
     setState(() => _guardando = true);
 
     String? error = await ServicioAuth().registrarNuevoPersonal(
@@ -53,7 +53,8 @@ class _PantallaCrearUsuarioState extends State<PantallaCrearUsuario> {
     setState(() => _guardando = false);
 
     if (error == null) {
-      UtilidadMensajes.mostrarExito(context, "¡Personal registrado exitosamente!");
+      UtilidadMensajes.mostrarExito(
+          context, "¡Personal registrado! Deberá cambiar la contraseña temporal al ingresar.");
       Navigator.pop(context); // Regresa a la pantalla anterior
     } else {
       UtilidadMensajes.mostrarError(context, error);
@@ -63,35 +64,29 @@ class _PantallaCrearUsuarioState extends State<PantallaCrearUsuario> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: TemaApp.fondoClaro,
-      appBar: AppBar(
-        title: const Text("Registrar Personal", style: TextStyle(fontWeight: FontWeight.bold)),
-        backgroundColor: Colors.black87,
-        foregroundColor: Colors.white,
-      ),
+      backgroundColor: TemaApp.fondo,
+      appBar: AppBar(title: const Text("Registrar personal")),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(20),
+        padding: const EdgeInsets.all(16),
         child: Form(
           key: _formKey,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text("Datos del Perfil", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.blueGrey)),
-              const SizedBox(height: 15),
-              
+              const _Etiqueta("DATOS DEL PERFIL"),
+
               // NOMBRE
               TextFormField(
                 controller: _nombreCtrl,
                 textCapitalization: TextCapitalization.words,
-                decoration: InputDecoration(
-                  labelText: "Nombre completo (Ej: Juan Pérez)",
-                  prefixIcon: const Icon(Icons.person),
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(15)),
-                  filled: true, fillColor: Colors.white,
+                style: const TextStyle(fontWeight: FontWeight.w600),
+                decoration: const InputDecoration(
+                  hintText: "Nombre completo (Ej: Juan Pérez)",
+                  prefixIcon: Icon(Icons.person_outline_rounded, size: 20),
                 ),
                 validator: (val) => val!.isEmpty ? "Ingrese el nombre" : null,
               ),
-              const SizedBox(height: 15),
+              const SizedBox(height: 14),
 
               // RANGO Y ROL EN FILA
               Row(
@@ -100,12 +95,13 @@ class _PantallaCrearUsuarioState extends State<PantallaCrearUsuario> {
                     flex: 6,
                     child: DropdownButtonFormField<String>(
                       initialValue: _rangoSeleccionado,
-                      decoration: InputDecoration(
-                        labelText: "Grado / Rango",
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(15)),
-                        filled: true, fillColor: Colors.white,
-                      ),
-                      items: _rangos.map((r) => DropdownMenuItem(value: r, child: Text(r, style: const TextStyle(fontSize: 14)))).toList(),
+                      decoration: const InputDecoration(labelText: "Grado / Rango"),
+                      items: _rangos
+                          .map((r) => DropdownMenuItem(
+                                value: r,
+                                child: Text(r, style: const TextStyle(fontSize: 13.5)),
+                              ))
+                          .toList(),
                       onChanged: (val) => setState(() => _rangoSeleccionado = val!),
                     ),
                   ),
@@ -114,34 +110,34 @@ class _PantallaCrearUsuarioState extends State<PantallaCrearUsuario> {
                     flex: 4,
                     child: DropdownButtonFormField<String>(
                       initialValue: _rolSeleccionado,
-                      decoration: InputDecoration(
-                        labelText: "Permisos",
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(15)),
-                        filled: true, fillColor: Colors.white,
-                      ),
+                      decoration: const InputDecoration(labelText: "Permisos"),
                       items: const [
                         DropdownMenuItem(value: Roles.bombero, child: Text("Tropa")),
-                        DropdownMenuItem(value: Roles.admin, child: Text("Admin", style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold))),
+                        DropdownMenuItem(
+                          value: Roles.admin,
+                          child: Text(
+                            "Admin",
+                            style: TextStyle(color: TemaApp.rojo, fontWeight: FontWeight.w800),
+                          ),
+                        ),
                       ],
                       onChanged: (val) => setState(() => _rolSeleccionado = val!),
                     ),
                   ),
                 ],
               ),
-              
-              const SizedBox(height: 30),
-              const Text("Credenciales de Acceso", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.blueGrey)),
-              const SizedBox(height: 15),
+
+              const SizedBox(height: 28),
+              const _Etiqueta("CREDENCIALES DE ACCESO"),
 
               // CORREO
               TextFormField(
                 controller: _emailCtrl,
                 keyboardType: TextInputType.emailAddress,
-                decoration: InputDecoration(
-                  labelText: "Correo Institucional",
-                  prefixIcon: const Icon(Icons.email),
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(15)),
-                  filled: true, fillColor: Colors.white,
+                style: const TextStyle(fontWeight: FontWeight.w600),
+                decoration: const InputDecoration(
+                  hintText: "Correo institucional",
+                  prefixIcon: Icon(Icons.alternate_email_rounded, size: 20),
                 ),
                 validator: (val) {
                   if (val!.isEmpty) return "Ingrese el correo";
@@ -149,46 +145,67 @@ class _PantallaCrearUsuarioState extends State<PantallaCrearUsuario> {
                   return null;
                 },
               ),
-              const SizedBox(height: 15),
+              const SizedBox(height: 14),
 
               // CONTRASEÑA
               TextFormField(
                 controller: _passCtrl,
                 obscureText: _ocultarPass,
+                style: const TextStyle(fontWeight: FontWeight.w600),
                 decoration: InputDecoration(
-                  labelText: "Contraseña Temporal",
-                  prefixIcon: const Icon(Icons.lock),
+                  hintText: "Contraseña temporal",
+                  helperText: "El usuario deberá cambiarla en su primer ingreso",
+                  helperStyle: const TextStyle(fontSize: 11.5, color: TemaApp.textoTerciario),
+                  prefixIcon: const Icon(Icons.lock_outline_rounded, size: 20),
                   suffixIcon: IconButton(
-                    icon: Icon(_ocultarPass ? Icons.visibility : Icons.visibility_off),
+                    icon: Icon(
+                      _ocultarPass ? Icons.visibility_outlined : Icons.visibility_off_outlined,
+                      size: 20,
+                    ),
                     onPressed: () => setState(() => _ocultarPass = !_ocultarPass),
                   ),
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(15)),
-                  filled: true, fillColor: Colors.white,
                 ),
                 validator: (val) => val!.length < 6 ? "Mínimo 6 caracteres" : null,
               ),
 
-              const SizedBox(height: 40),
+              const SizedBox(height: 36),
 
               // BOTÓN GUARDAR
               SizedBox(
                 width: double.infinity,
-                height: 55,
+                height: 54,
                 child: ElevatedButton.icon(
                   onPressed: _guardando ? null : _crearUsuario,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.black87,
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
-                  ),
-                  icon: _guardando 
-                    ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                    : const Icon(Icons.person_add_alt_1),
-                  label: Text(_guardando ? "REGISTRANDO..." : "CREAR CUENTA", style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                  icon: _guardando
+                      ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                      : const Icon(Icons.person_add_alt_1_rounded, size: 20),
+                  label: Text(_guardando ? "REGISTRANDO..." : "CREAR CUENTA"),
                 ),
-              )
+              ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Etiqueta de sección en mayúsculas pequeñas, estilo del sistema.
+class _Etiqueta extends StatelessWidget {
+  final String texto;
+  const _Etiqueta(this.texto);
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12, left: 2),
+      child: Text(
+        texto,
+        style: const TextStyle(
+          fontWeight: FontWeight.w800,
+          fontSize: 10.5,
+          color: TemaApp.textoTerciario,
+          letterSpacing: 1.4,
         ),
       ),
     );

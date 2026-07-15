@@ -17,10 +17,10 @@ void main() {
     });
   });
 
-  test('TemaApp genera un tema Material 3 con los colores institucionales', () {
+  test('TemaApp genera un tema Material 3 con los colores del logo', () {
     final tema = TemaApp.obtenerTema();
     expect(tema.useMaterial3, isTrue);
-    expect(tema.colorScheme.primary, TemaApp.azulInstitucional);
-    expect(tema.colorScheme.secondary, TemaApp.rojoBombero);
+    expect(tema.colorScheme.primary, TemaApp.rojo);
+    expect(tema.colorScheme.secondary, TemaApp.negro);
   });
 }

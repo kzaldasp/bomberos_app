@@ -12,7 +12,9 @@ class UtilidadIconos {
     'medical_services': Icons.medical_services,           // Médico
     'propane_tank': Icons.propane_tank,                   // Gas
     'pets': Icons.pets,                                   // Animales
-    
+    'support': Icons.support,                             // Rescate (salvavidas)
+    'more_horiz': Icons.more_horiz,                       // Otros
+
     // --- EXTRAS (Por si acaso agregas más luego) ---
     'thunderstorm': Icons.thunderstorm,                   // Tormenta
     'landslide': Icons.landslide,                         // Deslizamiento

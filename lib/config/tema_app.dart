@@ -1,83 +1,173 @@
 import 'package:flutter/material.dart';
 
+/// Sistema de diseño de la app.
+///
+/// Identidad tomada del escudo institucional: rojo bombero, negro y blanco.
+/// Estilo: minimalista y plano — superficies blancas, bordes sutiles de 1px,
+/// un solo radio de esquina y el rojo reservado para las acciones importantes.
 class TemaApp {
-  // Colores (Mantenemos tu identidad, pero ajustamos tonos)
-  static const Color azulInstitucional = Color(0xFF151B54); // Un azul más profundo (Navy)
-  static const Color rojoBombero = Color(0xFFD32F2F);
-  
-  // Colores de fondo modernos
-  static const Color fondoClaro = Color(0xFFF8F9FA); // Casi blanco, muy limpio
-  static const Color grisInput = Color(0xFFF1F3F4);  // Para las cajas de texto
-  
-  // Colores de Estado (Más pastel/suaves para no agredir la vista)
-  static const Color estadoActivo = Color(0xFFE53935);
-  static const Color estadoFinalizado = Color(0xFF43A047);
+  // ---- PALETA (colores del logo) ----
+  static const Color rojo = Color(0xFFC8102E); // Rojo del escudo
+  static const Color rojoOscuro = Color(0xFF9B0C23); // Para estados presionados
+  static const Color rojoSuave = Color(0xFFFCE9EC); // Fondo de acentos rojos
+
+  static const Color negro = Color(0xFF17181C); // Negro carbón (textos y énfasis)
+  static const Color textoSecundario = Color(0xFF6E7278);
+  static const Color textoTerciario = Color(0xFFA6AAB0);
+
+  static const Color fondo = Color(0xFFF7F7F8); // Fondo general gris muy claro
+  static const Color superficie = Colors.white; // Tarjetas y paneles
+  static const Color borde = Color(0xFFE9EAEC); // Bordes de 1px
+  static const Color relleno = Color(0xFFF2F3F4); // Fondo de inputs
+
+  static const Color exito = Color(0xFF1E9E5A);
+  static const Color advertencia = Color(0xFFE8930C);
+
+  // ---- MÉTRICAS UNIFICADAS ----
+  static const double radio = 14; // Inputs, botones, chips
+  static const double radioTarjeta = 18; // Tarjetas y paneles
+
+  /// Borde estándar de tarjetas/paneles blancos.
+  static BoxDecoration decoracionTarjeta({double? radioPersonalizado}) {
+    return BoxDecoration(
+      color: superficie,
+      borderRadius: BorderRadius.circular(radioPersonalizado ?? radioTarjeta),
+      border: Border.all(color: borde),
+    );
+  }
 
   static ThemeData obtenerTema() {
-    return ThemeData(
-      useMaterial3: true,
-      scaffoldBackgroundColor: fondoClaro,
-      
-      // Esquema de color base
+    final base = ThemeData(useMaterial3: true);
+
+    return base.copyWith(
+      scaffoldBackgroundColor: fondo,
+
       colorScheme: ColorScheme.fromSeed(
-        seedColor: azulInstitucional,
-        primary: azulInstitucional,
-        secondary: rojoBombero,
-        surface: Colors.white,
+        seedColor: rojo,
+        primary: rojo,
+        secondary: negro,
+        surface: superficie,
+        error: rojoOscuro,
       ),
 
-      // 1. APPBAR LIMPIO (Sin sombra, estilo plano)
+      // APPBAR: blanco, plano, texto negro. El color lo pone el contenido.
       appBarTheme: const AppBarTheme(
-        backgroundColor: azulInstitucional,
-        foregroundColor: Colors.white,
+        backgroundColor: superficie,
+        foregroundColor: negro,
         elevation: 0,
+        scrolledUnderElevation: 0,
         centerTitle: true,
-        titleTextStyle: TextStyle(fontSize: 20, fontWeight: FontWeight.w600, letterSpacing: 0.5),
+        shape: Border(bottom: BorderSide(color: borde)),
+        titleTextStyle: TextStyle(
+          color: negro,
+          fontSize: 16,
+          fontWeight: FontWeight.w800,
+          letterSpacing: 0.2,
+        ),
+        iconTheme: IconThemeData(color: negro, size: 22),
       ),
 
-      // 2. INPUTS MODERNOS (Estilo "burbuja" gris sin bordes duros)
+      // INPUTS: relleno gris claro, sin borde hasta enfocar (rojo fino).
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: grisInput,
-        contentPadding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
+        fillColor: relleno,
+        contentPadding: const EdgeInsets.symmetric(vertical: 16, horizontal: 18),
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
-          borderSide: BorderSide.none, // Sin borde visible por defecto
+          borderRadius: BorderRadius.circular(radio),
+          borderSide: BorderSide.none,
         ),
         enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(radio),
           borderSide: BorderSide.none,
         ),
         focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
-          borderSide: const BorderSide(color: azulInstitucional, width: 1.5),
+          borderRadius: BorderRadius.circular(radio),
+          borderSide: const BorderSide(color: rojo, width: 1.4),
         ),
-        labelStyle: const TextStyle(color: Colors.grey),
-        prefixIconColor: Colors.grey,
+        labelStyle: const TextStyle(color: textoSecundario),
+        hintStyle: const TextStyle(color: textoTerciario),
+        prefixIconColor: textoTerciario,
+        suffixIconColor: textoTerciario,
       ),
 
-      // 3. TARJETAS (Cards) FLOTANTES
+      // TARJETAS: planas, borde de 1px, sin sombra.
       cardTheme: CardThemeData(
-        color: Colors.white,
-        elevation: 0, // Quitamos la sombra por defecto de Material
+        color: superficie,
+        elevation: 0,
+        margin: EdgeInsets.zero,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(20), // Bordes muy redondos
-          side: BorderSide(color: Colors.grey.shade200, width: 1), // Borde sutil
+          borderRadius: BorderRadius.circular(radioTarjeta),
+          side: const BorderSide(color: borde),
         ),
       ),
 
-      // 4. BOTONES GRANDES Y REDONDOS
+      // BOTÓN PRINCIPAL: rojo plano, sin brillos.
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
-          backgroundColor: rojoBombero,
+          backgroundColor: rojo,
           foregroundColor: Colors.white,
-          elevation: 4,
-          shadowColor: rojoBombero.withValues(alpha: 0.4), // Sombra del mismo color (efecto glow)
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 24),
-          textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, letterSpacing: 1),
+          disabledBackgroundColor: rojo.withValues(alpha: 0.35),
+          disabledForegroundColor: Colors.white,
+          elevation: 0,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(radio)),
+          padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 24),
+          textStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800, letterSpacing: 0.6),
         ),
       ),
+
+      outlinedButtonTheme: OutlinedButtonThemeData(
+        style: OutlinedButton.styleFrom(
+          foregroundColor: negro,
+          side: const BorderSide(color: borde),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(radio)),
+          padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 18),
+          textStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
+        ),
+      ),
+
+      textButtonTheme: TextButtonThemeData(
+        style: TextButton.styleFrom(
+          foregroundColor: rojo,
+          textStyle: const TextStyle(fontWeight: FontWeight.w700),
+        ),
+      ),
+
+      floatingActionButtonTheme: FloatingActionButtonThemeData(
+        backgroundColor: rojo,
+        foregroundColor: Colors.white,
+        elevation: 2,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      ),
+
+      dividerTheme: const DividerThemeData(color: borde, thickness: 1, space: 1),
+
+      dialogTheme: DialogThemeData(
+        backgroundColor: superficie,
+        surfaceTintColor: Colors.transparent,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(radioTarjeta)),
+        titleTextStyle: const TextStyle(color: negro, fontSize: 17, fontWeight: FontWeight.w800),
+        contentTextStyle: const TextStyle(color: textoSecundario, fontSize: 14, height: 1.5),
+      ),
+
+      bottomSheetTheme: const BottomSheetThemeData(
+        backgroundColor: superficie,
+        surfaceTintColor: Colors.transparent,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
+        ),
+      ),
+
+      switchTheme: SwitchThemeData(
+        thumbColor: WidgetStateProperty.resolveWith(
+          (states) => states.contains(WidgetState.selected) ? Colors.white : Colors.white,
+        ),
+        trackColor: WidgetStateProperty.resolveWith(
+          (states) => states.contains(WidgetState.selected) ? rojo : const Color(0xFFD8DADD),
+        ),
+        trackOutlineColor: const WidgetStatePropertyAll(Colors.transparent),
+      ),
+
+      progressIndicatorTheme: const ProgressIndicatorThemeData(color: rojo),
     );
   }
 }

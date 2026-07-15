@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import '../config/tema_app.dart';
 import '../servicios/servicio_auth.dart';
+import 'pantalla_cambiar_clave.dart';
 import 'pantalla_dashboard.dart';
-import '../config/utilidad_mensajes.dart'; // <--- Importar
+import '../config/utilidad_mensajes.dart';
+
 class PantallaLogin extends StatefulWidget {
   const PantallaLogin({super.key});
 
@@ -28,18 +30,24 @@ class _PantallaLoginState extends State<PantallaLogin> {
 
     setState(() => _estaCargando = true);
 
-    String? resultado = await _servicioAuth.iniciarSesion(correo, clave);
+    final resultado = await _servicioAuth.iniciarSesion(correo, clave);
 
     if (!mounted) return;
     setState(() => _estaCargando = false);
 
-    if (resultado == Roles.admin || resultado == Roles.bombero) {
+    final rol = resultado.rol;
+    if (rol == Roles.admin || rol == Roles.bombero) {
+      // Cuenta nueva con contraseña temporal: el cambio es obligatorio
+      // antes de entrar al dashboard.
+      final Widget destino = resultado.debeCambiarClave
+          ? PantallaCambiarClave(rolUsuario: rol!)
+          : PantallaDashboard(rolUsuario: rol!);
       Navigator.pushReplacement(
         context,
-        MaterialPageRoute(builder: (context) => PantallaDashboard(rolUsuario: resultado!)),
+        MaterialPageRoute(builder: (context) => destino),
       );
     } else {
-      UtilidadMensajes.mostrarError(context, resultado ?? "Error desconocido");
+      UtilidadMensajes.mostrarError(context, resultado.error ?? "Error desconocido");
     }
   }
 
@@ -52,150 +60,154 @@ class _PantallaLoginState extends State<PantallaLogin> {
 
   @override
   Widget build(BuildContext context) {
-    // Usamos LayoutBuilder para asegurar que el footer quede abajo
-    // pero que todo sea desplazable si sale el teclado.
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: TemaApp.negro,
       body: LayoutBuilder(
         builder: (context, constraints) {
           return SingleChildScrollView(
             child: ConstrainedBox(
               constraints: BoxConstraints(minHeight: constraints.maxHeight),
               child: IntrinsicHeight(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 24.0), // Padding estándar moderno
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const Spacer(), // Empuja contenido al centro visual
-
-                      // --- 1. LOGO E IDENTIDAD ---
-                      Image.asset(
-                        'assets/images/logo.png',
-                        height: 120, 
-                        fit: BoxFit.contain,
-                      ),
-                      
-                      const SizedBox(height: 30),
-
-                      // Títulos con Jerarquía
-                      Text(
-                        "SISTEMA DE ALERTAS",
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          color: Colors.grey.shade600,
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
-                          letterSpacing: 2.0, // Espaciado elegante
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      const Text(
-                        "BOMBEROS OTAVALO",
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          color: TemaApp.azulInstitucional, // Tu azul Navy
-                          fontSize: 24,
-                          fontWeight: FontWeight.w900, // Extra Bold
-                          height: 1.0,
-                        ),
-                      ),
-
-                      const SizedBox(height: 50),
-
-                      // --- 2. INPUTS (Siguiendo tu TemaApp) ---
-                      // Correo
-                      TextField(
-                        controller: _controladorCorreo,
-                        keyboardType: TextInputType.emailAddress,
-                        textInputAction: TextInputAction.next,
-                        autofillHints: const [AutofillHints.email],
-                        style: const TextStyle(fontWeight: FontWeight.w500),
-                        decoration: InputDecoration(
-                          hintText: "Correo electrónico",
-                          hintStyle: TextStyle(color: Colors.grey.shade400),
-                          prefixIcon: const Icon(Icons.email_outlined),
-                          prefixIconColor: Colors.grey.shade500,
-                          filled: true,
-                          fillColor: TemaApp.grisInput, // Tu gris del tema
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(16), // Tu radio del tema
-                            borderSide: BorderSide.none,
-                          ),
-                          contentPadding: const EdgeInsets.symmetric(vertical: 20, horizontal: 20),
-                        ),
-                      ),
-                      
-                      const SizedBox(height: 16), // Espacio limpio entre inputs
-
-                      // Contraseña
-                      TextField(
-                        controller: _controladorClave,
-                        obscureText: _ocultarClave,
-                        textInputAction: TextInputAction.done,
-                        onSubmitted: (_) => _estaCargando ? null : _procesarIngreso(),
-                        style: const TextStyle(fontWeight: FontWeight.w500),
-                        decoration: InputDecoration(
-                          hintText: "Contraseña",
-                          hintStyle: TextStyle(color: Colors.grey.shade400),
-                          prefixIcon: const Icon(Icons.lock_outline),
-                          prefixIconColor: Colors.grey.shade500,
-                          suffixIcon: IconButton(
-                            icon: Icon(
-                              _ocultarClave ? Icons.visibility_outlined : Icons.visibility_off_outlined,
-                              color: Colors.grey.shade500,
-                            ),
-                            onPressed: () => setState(() => _ocultarClave = !_ocultarClave),
-                          ),
-                          filled: true,
-                          fillColor: TemaApp.grisInput,
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(16),
-                            borderSide: BorderSide.none,
-                          ),
-                          contentPadding: const EdgeInsets.symmetric(vertical: 20, horizontal: 20),
-                        ),
-                      ),
-
-                      const SizedBox(height: 32),
-
-                      // --- 3. BOTÓN DE ACCIÓN (Tu TemaApp) ---
-                      SizedBox(
+                child: Column(
+                  children: [
+                    // ---- ZONA SUPERIOR OSCURA: identidad ----
+                    Expanded(
+                      flex: 4,
+                      child: Container(
                         width: double.infinity,
-                        height: 58, // Altura cómoda para el dedo
-                        child: ElevatedButton(
-                          onPressed: _estaCargando ? null : _procesarIngreso,
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: TemaApp.rojoBombero,
-                            foregroundColor: Colors.white,
-                            elevation: 5,
-                            shadowColor: TemaApp.rojoBombero.withValues(alpha: 0.4), // Glow rojo
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(16), // Tu radio del tema
+                        padding: const EdgeInsets.symmetric(horizontal: 32),
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Image.asset(
+                              'assets/images/logo.png',
+                              height: 96,
+                              fit: BoxFit.contain,
+                            ),
+                            const SizedBox(height: 24),
+                            const Text(
+                              "BOMBEROS",
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 26,
+                                fontWeight: FontWeight.w900,
+                                letterSpacing: 6,
+                                height: 1.1,
+                              ),
+                            ),
+                            const Text(
+                              "COTACACHI",
+                              style: TextStyle(
+                                color: TemaApp.rojo,
+                                fontSize: 26,
+                                fontWeight: FontWeight.w900,
+                                letterSpacing: 6,
+                                height: 1.2,
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                            Text(
+                              "Sistema de alertas de emergencia",
+                              style: TextStyle(
+                                color: Colors.white.withValues(alpha: 0.5),
+                                fontSize: 13,
+                                fontWeight: FontWeight.w500,
+                                letterSpacing: 0.3,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+
+                    // ---- PANEL BLANCO INFERIOR: formulario ----
+                    Container(
+                      width: double.infinity,
+                      decoration: const BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+                      ),
+                      padding: const EdgeInsets.fromLTRB(28, 32, 28, 24),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            "Iniciar sesión",
+                            style: TextStyle(
+                              color: TemaApp.negro,
+                              fontSize: 20,
+                              fontWeight: FontWeight.w800,
                             ),
                           ),
-                          child: _estaCargando 
-                            ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.5))
-                            : const Text("INGRESAR", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, letterSpacing: 1.0)),
-                        ),
-                      ),
-
-                      const Spacer(), // Empuja el footer al final
-
-                      // --- 4. FOOTER MINIMALISTA ---
-                      Padding(
-                        padding: const EdgeInsets.only(bottom: 30.0),
-                        child: Text(
-                          "Versión 1.0.0",
-                          style: TextStyle(
-                            color: Colors.grey.shade400,
-                            fontSize: 12,
-                            fontWeight: FontWeight.w500
+                          const SizedBox(height: 4),
+                          const Text(
+                            "Accede con tu cuenta institucional",
+                            style: TextStyle(color: TemaApp.textoSecundario, fontSize: 13),
                           ),
-                        ),
+                          const SizedBox(height: 24),
+
+                          TextField(
+                            controller: _controladorCorreo,
+                            keyboardType: TextInputType.emailAddress,
+                            textInputAction: TextInputAction.next,
+                            autofillHints: const [AutofillHints.email],
+                            style: const TextStyle(fontWeight: FontWeight.w600),
+                            decoration: const InputDecoration(
+                              hintText: "Correo electrónico",
+                              prefixIcon: Icon(Icons.alternate_email_rounded, size: 20),
+                            ),
+                          ),
+                          const SizedBox(height: 14),
+
+                          TextField(
+                            controller: _controladorClave,
+                            obscureText: _ocultarClave,
+                            textInputAction: TextInputAction.done,
+                            onSubmitted: (_) => _estaCargando ? null : _procesarIngreso(),
+                            style: const TextStyle(fontWeight: FontWeight.w600),
+                            decoration: InputDecoration(
+                              hintText: "Contraseña",
+                              prefixIcon: const Icon(Icons.lock_outline_rounded, size: 20),
+                              suffixIcon: IconButton(
+                                icon: Icon(
+                                  _ocultarClave
+                                      ? Icons.visibility_outlined
+                                      : Icons.visibility_off_outlined,
+                                  size: 20,
+                                ),
+                                onPressed: () => setState(() => _ocultarClave = !_ocultarClave),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 24),
+
+                          SizedBox(
+                            width: double.infinity,
+                            height: 54,
+                            child: ElevatedButton(
+                              onPressed: _estaCargando ? null : _procesarIngreso,
+                              child: _estaCargando
+                                  ? const SizedBox(
+                                      width: 22,
+                                      height: 22,
+                                      child: CircularProgressIndicator(
+                                          color: Colors.white, strokeWidth: 2.5),
+                                    )
+                                  : const Text("INGRESAR"),
+                            ),
+                          ),
+
+                          const SizedBox(height: 20),
+                          const Center(
+                            child: Text(
+                              "Versión 1.0.0",
+                              style: TextStyle(color: TemaApp.textoTerciario, fontSize: 11),
+                            ),
+                          ),
+                        ],
                       ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
               ),
             ),

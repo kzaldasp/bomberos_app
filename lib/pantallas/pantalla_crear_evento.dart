@@ -18,17 +18,17 @@ class PantallaCrearEvento extends StatefulWidget {
 
 class _PantallaCrearEventoState extends State<PantallaCrearEvento> {
   final TextEditingController _descController = TextEditingController();
-  
+
   // Variables de estado
   String _tipoEvento = 'Entrenamiento'; // Valor por defecto
   final List<String> _tipos = ['Entrenamiento', 'Operativo', 'Capacitación', 'Otro'];
-  
+
   DateTime _fechaSeleccionada = DateTime.now();
   TimeOfDay _horaSeleccionada = TimeOfDay.now();
 
   File? _archivoAdjunto;
   final ServicioAlmacenamiento _servicioAlmacenamiento = ServicioAlmacenamiento();
-  
+
   bool _guardando = false;
 
   @override
@@ -44,15 +44,6 @@ class _PantallaCrearEventoState extends State<PantallaCrearEvento> {
       initialDate: _fechaSeleccionada,
       firstDate: DateTime.now(), // No permite agendar en el pasado
       lastDate: DateTime(2030),
-      builder: (context, child) {
-        return Theme(
-          data: ThemeData.light().copyWith(
-            primaryColor: TemaApp.azulInstitucional,
-            colorScheme: const ColorScheme.light(primary: TemaApp.azulInstitucional),
-          ),
-          child: child!,
-        );
-      },
     );
     if (fecha != null) {
       setState(() => _fechaSeleccionada = fecha);
@@ -107,15 +98,17 @@ class _PantallaCrearEventoState extends State<PantallaCrearEvento> {
 
       // 4. Guardar en la colección 'eventos'
       await FirebaseFirestore.instance.collection('eventos').add(eventoData);
-await ServicioNotificaciones().enviarNotificacionSelectiva(
+      await ServicioNotificaciones().enviarNotificacionSelectiva(
         uidsDestinatarios: [], // Al enviarlo vacío, nuestro servicio busca a todos
         titulo: "NUEVO EVENTO: $_tipoEvento",
         cuerpo: _descController.text.trim(),
-        urlImagen: urlSubida, 
+        urlImagen: urlSubida,
       );
       if (mounted) {
-        Navigator.pop(context);
+        // Mensaje antes del pop: el context de esta pantalla deja de ser
+        // válido tras la navegación.
         UtilidadMensajes.mostrarExito(context, "¡$_tipoEvento agendado con éxito!");
+        Navigator.pop(context);
       }
     } catch (e) {
       if (mounted) {
@@ -129,30 +122,30 @@ await ServicioNotificaciones().enviarNotificacionSelectiva(
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text("Agendar Evento", style: TextStyle(fontWeight: FontWeight.bold)),
-        backgroundColor: TemaApp.azulInstitucional,
-        foregroundColor: Colors.white,
-      ),
+      backgroundColor: TemaApp.fondo,
+      appBar: AppBar(title: const Text("Agendar evento")),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(20),
+        padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // 1. SELECTOR DE TIPO
-            const Text("Tipo de Evento", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-            const SizedBox(height: 8),
+            const _Etiqueta("TIPO DE EVENTO"),
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 15),
+              padding: const EdgeInsets.symmetric(horizontal: 16),
               decoration: BoxDecoration(
-                border: Border.all(color: Colors.grey.shade400),
-                borderRadius: BorderRadius.circular(15),
+                color: TemaApp.relleno,
+                borderRadius: BorderRadius.circular(TemaApp.radio),
               ),
               child: DropdownButtonHideUnderline(
                 child: DropdownButton<String>(
                   value: _tipoEvento,
                   isExpanded: true,
-                  icon: const Icon(Icons.arrow_drop_down, color: TemaApp.azulInstitucional),
+                  icon: const Icon(Icons.keyboard_arrow_down_rounded, color: TemaApp.textoSecundario),
+                  style: const TextStyle(
+                    color: TemaApp.negro,
+                    fontWeight: FontWeight.w600,
+                    fontSize: 14.5,
+                  ),
                   items: _tipos.map((String value) {
                     return DropdownMenuItem<String>(
                       value: value,
@@ -165,66 +158,61 @@ await ServicioNotificaciones().enviarNotificacionSelectiva(
                 ),
               ),
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 22),
 
-            // 2. DESCRIPCIÓN
-            const Text("Detalles del Evento", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-            const SizedBox(height: 8),
+            const _Etiqueta("DETALLES"),
             TextField(
               controller: _descController,
-              decoration: InputDecoration(
+              decoration: const InputDecoration(
                 hintText: "Ej: Capacitación de uso de extintores en Plaza Central...",
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(15)),
               ),
               maxLines: 3,
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 22),
 
-            // 3. FECHA Y HORA
+            const _Etiqueta("FECHA Y HORA"),
             Row(
               children: [
                 Expanded(
                   child: OutlinedButton.icon(
                     onPressed: () => _seleccionarFecha(context),
-                    icon: const Icon(Icons.calendar_today, size: 18),
+                    icon: const Icon(Icons.calendar_today_rounded, size: 16),
                     label: Text(UtilidadFormato.fecha(_fechaSeleccionada)),
-                    style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 15)),
                   ),
                 ),
                 const SizedBox(width: 10),
                 Expanded(
                   child: OutlinedButton.icon(
                     onPressed: () => _seleccionarHora(context),
-                    icon: const Icon(Icons.access_time, size: 18),
+                    icon: const Icon(Icons.schedule_rounded, size: 16),
                     label: Text(_horaSeleccionada.format(context)),
-                    style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 15)),
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 22),
 
-            // 4. ARCHIVO ADJUNTO
-            Card(
-              elevation: 0,
-              shape: RoundedRectangleBorder(
-                side: BorderSide(color: Colors.grey.shade300),
-                borderRadius: BorderRadius.circular(15),
-              ),
+            const _Etiqueta("ADJUNTO"),
+            Container(
+              decoration: TemaApp.decoracionTarjeta(radioPersonalizado: TemaApp.radio),
               child: ListTile(
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(TemaApp.radio)),
                 leading: Icon(
-                  _archivoAdjunto == null ? Icons.attach_file : Icons.check_circle,
-                  color: _archivoAdjunto == null ? Colors.grey : Colors.green,
-                  size: 30,
+                  _archivoAdjunto == null ? Icons.attach_file_rounded : Icons.check_circle_rounded,
+                  color: _archivoAdjunto == null ? TemaApp.textoTerciario : TemaApp.exito,
                 ),
                 title: Text(
-                  _archivoAdjunto == null ? "Adjuntar Archivo (Opcional)" : "Archivo cargado",
+                  _archivoAdjunto == null ? "Adjuntar archivo (opcional)" : "Archivo cargado",
                   style: TextStyle(
-                    color: _archivoAdjunto == null ? Colors.black87 : Colors.green,
-                    fontWeight: FontWeight.bold,
+                    color: _archivoAdjunto == null ? TemaApp.negro : TemaApp.exito,
+                    fontWeight: FontWeight.w700,
+                    fontSize: 14,
                   ),
                 ),
-                subtitle: const Text("PDF, JPG o PNG"),
+                subtitle: const Text(
+                  "PDF, JPG o PNG",
+                  style: TextStyle(color: TemaApp.textoTerciario, fontSize: 12),
+                ),
                 onTap: () async {
                   File? archivo = await _servicioAlmacenamiento.seleccionarArchivo();
                   if (archivo != null) {
@@ -233,29 +221,42 @@ await ServicioNotificaciones().enviarNotificacionSelectiva(
                 },
               ),
             ),
-            const SizedBox(height: 30),
+            const SizedBox(height: 32),
 
-            // 5. BOTÓN GUARDAR
             SizedBox(
               width: double.infinity,
-              height: 55,
+              height: 54,
               child: ElevatedButton.icon(
                 onPressed: _guardando ? null : _guardarEvento,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: TemaApp.azulInstitucional,
-                  foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
-                ),
-                icon: _guardando 
-                  ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                  : const Icon(Icons.save),
-                label: Text(
-                  _guardando ? "AGENDANDO..." : "AGENDAR EVENTO",
-                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                ),
+                icon: _guardando
+                    ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                    : const Icon(Icons.event_available_rounded, size: 20),
+                label: Text(_guardando ? "AGENDANDO..." : "AGENDAR EVENTO"),
               ),
-            )
+            ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Etiqueta de sección en mayúsculas pequeñas, estilo del sistema.
+class _Etiqueta extends StatelessWidget {
+  final String texto;
+  const _Etiqueta(this.texto);
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8, left: 2),
+      child: Text(
+        texto,
+        style: const TextStyle(
+          fontWeight: FontWeight.w800,
+          fontSize: 10.5,
+          color: TemaApp.textoTerciario,
+          letterSpacing: 1.4,
         ),
       ),
     );

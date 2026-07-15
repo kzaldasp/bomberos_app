@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../config/tema_app.dart';
 
 class VistaSinAlertas extends StatelessWidget {
   const VistaSinAlertas({super.key});
@@ -9,59 +10,61 @@ class VistaSinAlertas extends StatelessWidget {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          // Círculo de fondo suave
+          // Icono sobrio dentro de un anillo sutil
           Container(
-            padding: const EdgeInsets.all(30),
+            width: 110,
+            height: 110,
+            alignment: Alignment.center,
             decoration: BoxDecoration(
-              color: Colors.green.withValues(alpha: 0.1),
+              color: TemaApp.superficie,
               shape: BoxShape.circle,
+              border: Border.all(color: TemaApp.borde, width: 1.5),
             ),
-            child: Icon(
-              Icons.verified_user_rounded, // Escudo de seguridad
-              size: 80,
-              color: Colors.green.shade400,
+            child: const Icon(
+              Icons.shield_outlined,
+              size: 46,
+              color: TemaApp.textoTerciario,
             ),
           ),
-          const SizedBox(height: 25),
-          
-          Text(
-            "Sin Novedades",
+          const SizedBox(height: 28),
+
+          const Text(
+            "Sin novedades",
             style: TextStyle(
-              fontSize: 24,
-              fontWeight: FontWeight.bold,
-              color: Colors.grey.shade800,
-              letterSpacing: 1
+              fontSize: 20,
+              fontWeight: FontWeight.w800,
+              color: TemaApp.negro,
             ),
           ),
-          const SizedBox(height: 10),
-          
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 40),
+          const SizedBox(height: 8),
+
+          const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 48),
             child: Text(
-              "Todo está tranquilo en la ciudad. Mantente alerta a nuevas notificaciones.",
+              "No hay emergencias activas en este momento. Mantente atento a las notificaciones.",
               textAlign: TextAlign.center,
               style: TextStyle(
-                fontSize: 15,
-                color: Colors.grey.shade500,
-                height: 1.5
+                fontSize: 13.5,
+                color: TemaApp.textoSecundario,
+                height: 1.55,
               ),
             ),
           ),
-          
-          const SizedBox(height: 40),
-          
+
+          const SizedBox(height: 36),
+
           // Pista de uso: la lista se actualiza sola y con pull-to-refresh
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(Icons.swipe_down_alt_rounded, size: 18, color: Colors.grey.shade400),
-              const SizedBox(width: 8),
+            children: const [
+              Icon(Icons.swipe_down_alt_rounded, size: 16, color: TemaApp.textoTerciario),
+              SizedBox(width: 8),
               Text(
                 "Desliza hacia abajo para actualizar",
-                style: TextStyle(color: Colors.grey.shade400, fontSize: 13),
+                style: TextStyle(color: TemaApp.textoTerciario, fontSize: 12.5),
               ),
             ],
-          )
+          ),
         ],
       ),
     );

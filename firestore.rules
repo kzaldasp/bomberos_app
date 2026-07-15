@@ -16,10 +16,16 @@ service cloud.firestore {
     }
 
     // Perfiles del personal: todos los autenticados leen (nombres, rangos),
-    // solo un admin crea o modifica.
+    // solo un admin crea o modifica. Única excepción: el propio usuario
+    // puede quitar su marca de contraseña temporal en el primer ingreso
+    // (y NADA más de su perfil).
     match /usuarios/{uid} {
       allow read: if autenticado();
-      allow create, update, delete: if esAdmin();
+      allow create, delete: if esAdmin();
+      allow update: if esAdmin() ||
+        (autenticado() && request.auth.uid == uid &&
+          request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly(['debe_cambiar_clave']));
     }
 
     // Catálogo de tipos de emergencia
@@ -36,15 +42,21 @@ service cloud.firestore {
 
     match /emergencias/{id} {
       allow read: if autenticado();
-      allow create, delete: if esAdmin();
+      // Cualquier usuario del cuerpo puede emitir una alerta.
+      allow create: if autenticado();
+      allow delete: if esAdmin();
       // Los bomberos necesitan update para registrar su respuesta
       // ("Voy en camino") y el admin para finalizar el operativo.
       allow update: if autenticado();
 
       // Trayecto GPS: cada bombero escribe SOLO su propio documento.
+      // El borrado también lo puede hacer un admin: al finalizar el operativo
+      // se limpian todos los trayectos (datos viejos que ya no sirven).
       match /trayectos/{bomberoUid} {
         allow read: if autenticado();
-        allow write: if autenticado() && request.auth.uid == bomberoUid;
+        allow create, update: if autenticado() && request.auth.uid == bomberoUid;
+        allow delete: if autenticado() &&
+          (request.auth.uid == bomberoUid || esAdmin());
       }
     }
   }

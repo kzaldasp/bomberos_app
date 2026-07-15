@@ -39,13 +39,13 @@ class VistaListaAlertas extends StatelessWidget {
         }
         
         return ListView.builder(
-          padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 20),
+          padding: const EdgeInsets.fromLTRB(16, 18, 16, 100),
           itemCount: listaAlertas.length,
           itemBuilder: (context, index) {
             final alerta = listaAlertas[index];
-            
+
             return Padding(
-              padding: const EdgeInsets.only(bottom: 15.0),
+              padding: const EdgeInsets.only(bottom: 12.0),
               child: TarjetaEmergencia(
                 alerta: alerta,
                 onTap: () {

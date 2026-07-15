@@ -1,5 +1,5 @@
 name: bomberos_app
-description: "Sistema de alertas del Cuerpo de Bomberos de Otavalo."
+description: "Sistema de alertas del Cuerpo de Bomberos de Cotacachi."
 publish_to: 'none'
 
 version: 1.0.0+1
@@ -31,11 +31,20 @@ dependencies:
   url_launcher: ^6.3.0
   file_picker: ^11.0.2
   http: ^1.6.0 # Subida de archivos a Cloudinary
+  shared_preferences: ^2.5.5
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^5.0.0
+  flutter_launcher_icons: ^0.14.3
+
+# Genera los iconos de launcher con: dart run flutter_launcher_icons
+flutter_launcher_icons:
+  android: true
+  ios: true
+  image_path: "assets/images/logo.png"
+  remove_alpha_ios: true
 
 flutter:
   uses-material-design: true

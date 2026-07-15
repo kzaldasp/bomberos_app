@@ -4,6 +4,7 @@ import '../config/tema_app.dart';
 import '../config/utilidad_mensajes.dart';
 import '../servicios/servicio_auth.dart';
 import 'pantalla_crear_usuario.dart';
+
 class PantallaGestionRoles extends StatelessWidget {
   const PantallaGestionRoles({super.key});
 
@@ -12,17 +13,21 @@ class PantallaGestionRoles extends StatelessWidget {
     final confirmado = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: Text(haciaAdmin ? "¿Dar permisos de Admin?" : "¿Quitar permisos de Admin?"),
         content: Text(haciaAdmin
             ? "$nombre podrá crear alertas, gestionar personal y agendar eventos."
             : "$nombre pasará a ser Tropa y perderá el acceso administrativo."),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text("Cancelar")),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text("Cancelar", style: TextStyle(color: TemaApp.textoSecundario)),
+          ),
           ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: haciaAdmin ? Colors.orange : Colors.blueGrey),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: haciaAdmin ? TemaApp.rojo : TemaApp.negro,
+            ),
             onPressed: () => Navigator.pop(ctx, true),
-            child: Text(haciaAdmin ? "SÍ, DAR ADMIN" : "SÍ, QUITAR", style: const TextStyle(color: Colors.white)),
+            child: Text(haciaAdmin ? "SÍ, DAR ADMIN" : "SÍ, QUITAR"),
           ),
         ],
       ),
@@ -33,44 +38,44 @@ class PantallaGestionRoles extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text("Gestión de Personal", style: TextStyle(fontWeight: FontWeight.bold)),
-        backgroundColor: Colors.blueGrey[800], // Un color más serio para admins
-        foregroundColor: Colors.white,
-      ),
+      backgroundColor: TemaApp.fondo,
+      appBar: AppBar(title: const Text("Gestión de personal")),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () {
           Navigator.push(context, MaterialPageRoute(builder: (context) => const PantallaCrearUsuario()));
         },
-        backgroundColor: TemaApp.azulInstitucional,
-        icon: const Icon(Icons.add, color: Colors.white),
-        label: const Text("NUEVO PERSONAL", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+        icon: const Icon(Icons.person_add_alt_1_rounded),
+        label: const Text(
+          "NUEVO PERSONAL",
+          style: TextStyle(fontWeight: FontWeight.w800, letterSpacing: 0.6),
+        ),
       ),
-      // ----------------------------
       body: StreamBuilder<QuerySnapshot>(
         // Escuchamos a la colección de usuarios en tiempo real
         stream: FirebaseFirestore.instance.collection('usuarios').snapshots(),
         builder: (context, snapshot) {
-          // 1. Estado de carga
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
           }
 
-          // 2. Si no hay datos
           if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-            return const Center(child: Text("No hay usuarios registrados."));
+            return const Center(
+              child: Text(
+                "No hay usuarios registrados.",
+                style: TextStyle(color: TemaApp.textoSecundario),
+              ),
+            );
           }
 
           final usuarios = snapshot.data!.docs;
 
-          // 3. Pintamos la lista de personal
           return ListView.builder(
-            padding: const EdgeInsets.all(10),
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 100),
             itemCount: usuarios.length,
             itemBuilder: (context, index) {
               final user = usuarios[index];
               final userId = user.id;
-              
+
               // Extraemos datos con seguridad por si algún campo falta en Firestore
               final Map<String, dynamic> userData = user.data() as Map<String, dynamic>;
               final String nombre = userData['nombre'] ?? 'Bombero sin nombre';
@@ -84,22 +89,46 @@ class PantallaGestionRoles extends StatelessWidget {
               // admin se degrade por accidente y se quede sin acceso.
               final bool esMiCuenta = userId == ServicioAuth().usuarioActual?.uid;
 
-              return Card(
-                elevation: 2,
-                margin: const EdgeInsets.symmetric(vertical: 6),
+              return Container(
+                margin: const EdgeInsets.only(bottom: 10),
+                decoration: TemaApp.decoracionTarjeta(),
                 child: SwitchListTile(
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(TemaApp.radioTarjeta),
+                  ),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
                   title: Text(
                     esMiCuenta ? "$nombre (Tú)" : nombre,
-                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w800,
+                      fontSize: 14.5,
+                      color: TemaApp.negro,
+                    ),
                   ),
-                  subtitle: Text("$correo\n$rango • ${esAdmin ? 'ADMIN' : 'TROPA'}"),
+                  subtitle: Padding(
+                    padding: const EdgeInsets.only(top: 3),
+                    child: Text(
+                      "$correo\n$rango · ${esAdmin ? 'ADMIN' : 'TROPA'}",
+                      style: const TextStyle(
+                        color: TemaApp.textoSecundario,
+                        fontSize: 12,
+                        height: 1.5,
+                      ),
+                    ),
+                  ),
                   value: esAdmin,
-                  activeThumbColor: Colors.orange, // Color cuando es admin
-                  secondary: CircleAvatar(
-                    backgroundColor: esAdmin ? Colors.orange : Colors.grey,
+                  secondary: Container(
+                    width: 44,
+                    height: 44,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: esAdmin ? TemaApp.rojoSuave : TemaApp.relleno,
+                      borderRadius: BorderRadius.circular(13),
+                    ),
                     child: Icon(
-                      esAdmin ? Icons.admin_panel_settings : Icons.person,
-                      color: Colors.white
+                      esAdmin ? Icons.local_police_rounded : Icons.person_rounded,
+                      color: esAdmin ? TemaApp.rojo : TemaApp.textoTerciario,
+                      size: 22,
                     ),
                   ),
                   onChanged: esMiCuenta

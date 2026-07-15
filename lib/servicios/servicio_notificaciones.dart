@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart' show rootBundle;
@@ -59,18 +60,51 @@ class ServicioNotificaciones {
 
   /// Envía la notificación a todos (`uidsDestinatarios` vacío) o solo al
   /// canal personal de cada UID indicado.
+  ///
+  /// Con [soloDeGuardia] activado, un envío "a todos" se limita al personal
+  /// marcado de guardia esta semana (campo `de_guardia` en `usuarios`);
+  /// se usa para las alertas de emergencia, no para los eventos.
   Future<void> enviarNotificacionSelectiva({
     required List<String> uidsDestinatarios,
     required String titulo,
     required String cuerpo,
     String? urlImagen,
+    bool soloDeGuardia = false,
   }) async {
-    final topics = uidsDestinatarios.isEmpty
-        ? ['todos']
-        : uidsDestinatarios.map((uid) => 'u_$uid').toList();
+    List<String> topics;
+    if (uidsDestinatarios.isNotEmpty) {
+      topics = uidsDestinatarios.map((uid) => 'u_$uid').toList();
+    } else {
+      final uidsGuardia = soloDeGuardia ? await _uidsDeGuardia() : null;
+      topics = uidsGuardia == null
+          ? ['todos']
+          : uidsGuardia.map((uid) => 'u_$uid').toList();
+    }
 
     for (final topic in topics) {
       await _enviarATopic(topic: topic, titulo: titulo, cuerpo: cuerpo, urlImagen: urlImagen);
+    }
+  }
+
+  /// UIDs del personal de guardia, o `null` si todos están de guardia
+  /// (o no se pudo consultar): en ese caso basta el topic `todos`.
+  Future<List<String>?> _uidsDeGuardia() async {
+    try {
+      final snapshot = await FirebaseFirestore.instance.collection('usuarios').get();
+      if (snapshot.docs.isEmpty) return null;
+
+      // Sin el campo marcado se asume de guardia (compatibilidad con
+      // usuarios creados antes de esta función).
+      final deGuardia = snapshot.docs
+          .where((d) => d.data()['de_guardia'] != false)
+          .map((d) => d.id)
+          .toList();
+
+      if (deGuardia.length == snapshot.docs.length) return null;
+      return deGuardia;
+    } catch (e) {
+      debugPrint('No se pudo leer el personal de guardia, se notifica a todos: $e');
+      return null;
     }
   }
 

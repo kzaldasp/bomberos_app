@@ -1,6 +1,6 @@
-# Bomberos Otavalo — Sistema de Alertas
+# Bomberos Cotacachi — Sistema de Alertas
 
-App móvil (Flutter) del Cuerpo de Bomberos de Otavalo para gestionar
+App móvil (Flutter) del Cuerpo de Bomberos de Cotacachi para gestionar
 emergencias en tiempo real: alertas, respuesta del personal, rastreo del
 trayecto de cada bombero, eventos institucionales y gestión de usuarios.
 
@@ -11,8 +11,20 @@ Construida 100% con servicios gratuitos: **Firebase Spark** (Auth + Firestore
 
 | Rol | Puede |
 |---|---|
-| **Admin** | Crear alertas (categoría, mapa, adjunto, destinatarios), finalizar operativos, ver el trayecto de cada bombero, gestionar personal y roles, agendar eventos |
-| **Bombero** | Recibir alertas push, confirmar "Voy en camino" con ETA, compartir su trayecto GPS en vivo, ver historial y eventos |
+| **Admin** | Todo lo del bombero + finalizar operativos, ver el trayecto de cada bombero, gestionar personal y roles, marcar el personal de guardia semanal, agendar eventos |
+| **Bombero** | Crear alertas (categoría, mapa, adjunto, destinatarios), recibir alertas push, confirmar "Voy en camino" con ETA, compartir su trayecto GPS en vivo, ver historial y eventos |
+
+## Personal de guardia (notificaciones semanales)
+
+En **Menú → Personal de Guardia** el admin marca quiénes están de turno esa
+semana. Las alertas enviadas a "Todo el personal" solo notifican por push al
+personal de guardia (campo `de_guardia` en `usuarios`; sin el campo se asume
+de guardia). Los demás siguen viendo las alertas al abrir la app. Los envíos
+a un "Grupo selectivo" y los eventos institucionales no se filtran.
+
+> **Nota:** al actualizar a esta versión hay que volver a desplegar
+> `firestore.rules` (ahora cualquier usuario autenticado puede crear
+> emergencias): `firebase deploy --only firestore:rules`.
 
 ## Rastreo de trayecto (diseño para plan gratuito)
 
